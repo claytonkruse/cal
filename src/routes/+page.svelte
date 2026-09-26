@@ -359,7 +359,7 @@
 									<Button
 										variant="ghost"
 										size="sm"
-										class="justify-start"
+										class="w-full justify-center text-xs text-muted-foreground uppercase"
 										onclick={() => selectDay(parseDate(group.key))}
 									>
 										{group.label}
@@ -437,7 +437,7 @@
 
 			<Card.Root>
 				<Card.Header>
-					<Card.Title>iCal feed</Card.Title>
+					<Card.Title>iCal Feed</Card.Title>
 					<Card.Description>
 						{data.feed || data.preview
 							? 'Subscribe with the same dates shown on this calendar.'
@@ -446,7 +446,7 @@
 				</Card.Header>
 				<Card.Content class="flex flex-col gap-3">
 					<InputGroup.Root>
-						<InputGroup.Input readonly value={icalLink} aria-label="iCal feed" />
+						<InputGroup.Input readonly value={icalLink} aria-label="iCal Feed" />
 						<InputGroup.Addon align="inline-end">
 							<Tooltip.Root>
 								<Tooltip.Trigger>
