@@ -28,6 +28,42 @@ describe('parseFeed', () => {
 		assert.equal(lab?.course, 'Chemistry');
 	});
 
+	it('keeps the course name and the rest of the description', () => {
+		const items = parseFeed(`BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:event-assignment-7
+DTSTART:20260921T220000Z
+SUMMARY:HW2
+DESCRIPTION:Biology 101\\nWorth 20 points.\\nSubmit a PDF.
+LOCATION:Science Hall
+URL:https://school.instructure.com/courses/1/assignments/7
+END:VEVENT
+END:VCALENDAR`);
+		const homework = items[0];
+		assert.equal(homework?.course, 'Biology 101');
+		assert.equal(homework?.details, 'Worth 20 points.\nSubmit a PDF.');
+		assert.equal(homework?.location, 'Science Hall');
+	});
+
+	it('reads the course from the title and keeps the description as details', () => {
+		const items = parseFeed(`BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:event-assignment-2
+DTSTART:20260927T045900Z
+SUMMARY:Assignment_2 [CMP_SC-4450-01-58527-2026FS-PRINCIPLES OF PROG LANG]
+DESCRIPTION:Please check all four attached files carefully before starting the assignment.\\n[HW_02_Instructions.pdf](https://school.instructure.com/files/1)
+URL:https://school.instructure.com/courses/1/assignments/2
+END:VEVENT
+END:VCALENDAR`);
+		const homework = items[0];
+		assert.equal(homework?.title, 'Assignment_2');
+		assert.equal(homework?.course, 'CMP_SC 4450: Principles of Prog Lang');
+		assert.equal(
+			homework?.details,
+			'Please check all four attached files carefully before starting the assignment.\n[HW_02_Instructions.pdf](https://school.instructure.com/files/1)'
+		);
+	});
+
 	it('keeps a date-only assignment on its calendar date', () => {
 		const quiz = items.find((item) => item.title === 'Reading quiz');
 		assert.equal(quiz?.kind, 'assignment');

@@ -34,6 +34,17 @@ const COURSE_FILLS = [
 	'bg-course-8/20'
 ] as const;
 
+const COURSE_TEXT = [
+	'text-course-1',
+	'text-course-2',
+	'text-course-3',
+	'text-course-4',
+	'text-course-5',
+	'text-course-6',
+	'text-course-7',
+	'text-course-8'
+] as const;
+
 function courseIndex(name: string): number {
 	let hash = 0;
 	for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
@@ -50,6 +61,10 @@ export function courseBorder(name: string): (typeof COURSE_BORDERS)[number] {
 
 export function courseFill(name: string): (typeof COURSE_FILLS)[number] {
 	return COURSE_FILLS[courseIndex(name)];
+}
+
+export function courseText(name: string): (typeof COURSE_TEXT)[number] {
+	return COURSE_TEXT[courseIndex(name)];
 }
 
 export function eventDateKey(event: FeedItem, timeZone = getLocalTimeZone()): string {
@@ -210,6 +225,14 @@ function isEndOfDay(iso: string, timeZone: string): boolean {
 	const hour = Number(parts.find((part) => part.type === 'hour')?.value);
 	const minute = Number(parts.find((part) => part.type === 'minute')?.value);
 	return hour === 23 && minute >= 59;
+}
+
+export function eventClockLabel(event: FeedItem, timeZone = getLocalTimeZone()): string | null {
+	if (event.allDay) return event.kind === 'event' ? 'All day' : null;
+	if (event.kind === 'event' && event.end && event.end !== event.start) {
+		return `${clockTime(event.start, timeZone)} – ${clockTime(event.end, timeZone)}`;
+	}
+	return clockTime(event.start, timeZone);
 }
 
 export function eventWhenLabel(event: FeedItem, timeZone = getLocalTimeZone()): string {

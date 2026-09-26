@@ -12,6 +12,8 @@ export type FeedItem = {
 	kind: FeedItemKind;
 	url: string | null;
 	course: string | null;
+	details: string | null;
+	location: string | null;
 };
 
 function textOf(value: ParameterValue | undefined): string {
@@ -20,14 +22,66 @@ function textOf(value: ParameterValue | undefined): string {
 	return value.val;
 }
 
-function courseFromDescription(description: ParameterValue | undefined): string | null {
-	const raw = textOf(description).replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
-	const first = raw
+function plainText(value: ParameterValue | undefined): string {
+	return textOf(value)
+		.replace(/<br\s*\/?>/gi, '\n')
+		.replace(/<[^>]+>/g, '')
+		.replace(/&nbsp;/gi, ' ')
+		.replace(/&amp;/gi, '&')
+		.replace(/&lt;/gi, '<')
+		.replace(/&gt;/gi, '>')
+		.replace(/&#39;|&apos;/gi, "'")
+		.replace(/&quot;/gi, '"');
+}
+
+function titleCase(value: string): string {
+	const small = new Set(['of', 'and', 'the', 'for', 'in', 'a', 'an']);
+	return value
+		.toLowerCase()
+		.split(/\s+/)
+		.filter(Boolean)
+		.map((word, index) => {
+			if (index > 0 && small.has(word)) return word;
+			return word.charAt(0).toUpperCase() + word.slice(1);
+		})
+		.join(' ');
+}
+
+function courseLabel(raw: string): string {
+	const context = raw.trim();
+	const term = context.match(/^(.*?)-(\d{4}(?:fs|sp|ss|su|fa|wi))-(.+)$/i);
+	if (!term) return context;
+	const prefix = term[1].split('-');
+	const code = prefix.length >= 2 ? `${prefix[0]} ${prefix[1]}` : term[1];
+	const name = titleCase(term[3]);
+	return name ? `${code}: ${name}` : code;
+}
+
+function splitSummary(summary: string): { title: string; course: string | null } {
+	const match = summary.match(/^(.*?)\s+\[(.+)\]\s*$/);
+	if (!match) return { title: summary || 'Untitled', course: null };
+	const title = match[1].trim() || 'Untitled';
+	const course = courseLabel(match[2]);
+	return { title, course: course || null };
+}
+
+function descriptionParts(
+	description: ParameterValue | undefined,
+	courseFromTitle: boolean
+): { course: string | null; details: string | null } {
+	const lines = plainText(description)
 		.split(/\r?\n/)
 		.map((line) => line.trim())
-		.find(Boolean);
-	if (!first || first.length > 80) return null;
-	return first;
+		.filter(Boolean);
+	if (lines.length === 0) return { course: null, details: null };
+	if (courseFromTitle) {
+		const details = lines.join('\n');
+		return { course: null, details: details.slice(0, 600) };
+	}
+	const first = lines[0];
+	const course = first.length <= 80 ? first : null;
+	const details = (course ? lines.slice(1) : lines).join('\n').trim();
+	return { course, details: details ? details.slice(0, 600) : null };
 }
 
 function dateOnlyKey(date: Date): string {
@@ -54,8 +108,11 @@ export function parseFeed(ics: string): FeedItem[] {
 		const allDay = component.datetype === 'date' || component.start.dateOnly === true;
 		const start = component.start;
 		const end = component.end ?? null;
-		const title = textOf(component.summary).trim() || 'Untitled';
+		const summary = splitSummary(textOf(component.summary).trim());
+		const title = summary.title;
 		const url = textOf(component.url as ParameterValue | undefined).trim() || null;
+		const described = descriptionParts(component.description, summary.course !== null);
+		const location = plainText(component.location).trim() || null;
 
 		items.push({
 			id: component.uid,
@@ -66,7 +123,9 @@ export function parseFeed(ics: string): FeedItem[] {
 			date: allDay ? dateOnlyKey(start) : null,
 			kind: isAssignment(component) ? 'assignment' : 'event',
 			url,
-			course: courseFromDescription(component.description)
+			course: summary.course ?? described.course,
+			details: described.details,
+			location
 		});
 	}
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { assignmentPlacement, eventDayLabel, eventWhenLabel } from '$lib/canvas/dates';
+	import { assignmentPlacement, courseText, eventClockLabel, eventDayLabel } from '$lib/canvas/dates';
 	import { displayMoves, appToday } from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import { Badge } from '$lib/components/ui/badge';
@@ -21,6 +21,12 @@
 	} = $props();
 
 	const placement = $derived(assignmentPlacement(item, timeZone, displayMoves, appToday(timeZone)));
+	const clockLabel = $derived(eventClockLabel(item, timeZone));
+	const locationLabel = $derived(
+		item.location && item.location !== item.url && !/^https?:\/\//i.test(item.location)
+			? item.location
+			: null
+	);
 </script>
 
 <HoverCard.Root openDelay={0} closeDelay={0}>
@@ -35,7 +41,7 @@
 			</span>
 		{/snippet}
 	</HoverCard.Trigger>
-	<HoverCard.Content class="w-72">
+	<HoverCard.Content class="w-80">
 		<div class="flex flex-col gap-2">
 			<div class="flex items-start justify-between gap-3">
 				<p class="font-medium">{item.title}</p>
@@ -43,12 +49,18 @@
 					{item.kind === 'assignment' ? 'Due' : 'Event'}
 				</Badge>
 			</div>
-			<p class="text-muted-foreground">{eventDayLabel(item, timeZone)}</p>
-			{#if eventWhenLabel(item, timeZone) !== 'Due'}
-				<p>{eventWhenLabel(item, timeZone)}</p>
-			{/if}
 			{#if item.course}
-				<p>{item.course}</p>
+				<p class={cn('font-medium', courseText(item.course))}>{item.course}</p>
+			{/if}
+			<p class="text-muted-foreground">{eventDayLabel(item, timeZone)}</p>
+			{#if clockLabel}
+				<p>{clockLabel}</p>
+			{/if}
+			{#if locationLabel}
+				<p>{locationLabel}</p>
+			{/if}
+			{#if item.details}
+				<p class="line-clamp-6 whitespace-pre-line text-muted-foreground">{item.details}</p>
 			{/if}
 			{#if placement.weekendNote}
 				<p class="text-muted-foreground">
