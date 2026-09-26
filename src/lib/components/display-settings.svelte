@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { type CalendarDate, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 	import { defaultDisplayMoves, type DisplayMoves } from '$lib/canvas/dates';
 
 	const storageKey = 'canvas-calendar-display';
@@ -18,14 +19,43 @@
 		}
 	}
 
+	function loadDebug(): { enabled: boolean; today: string } {
+		if (typeof localStorage === 'undefined') return { enabled: false, today: '' };
+		try {
+			const raw = localStorage.getItem(storageKey);
+			if (!raw) return { enabled: false, today: '' };
+			const parsed = JSON.parse(raw) as { debug?: boolean; debugToday?: string };
+			return {
+				enabled: parsed.debug === true,
+				today: typeof parsed.debugToday === 'string' ? parsed.debugToday : ''
+			};
+		} catch {
+			return { enabled: false, today: '' };
+		}
+	}
+
 	export const displayMoves = $state<DisplayMoves>(loadMoves());
+	export const debugSettings = $state(loadDebug());
+
+	export function appToday(timeZone: string): CalendarDate {
+		if (debugSettings.enabled && debugSettings.today) {
+			try {
+				return parseDate(debugSettings.today);
+			} catch {
+				// Ignore a stored value that is not a calendar date.
+			}
+		}
+		return today(timeZone);
+	}
 
 	export function saveDisplayMoves(): void {
 		localStorage.setItem(
 			storageKey,
 			JSON.stringify({
 				weekend: displayMoves.weekend,
-				early: displayMoves.early
+				early: displayMoves.early,
+				debug: debugSettings.enabled,
+				debugToday: debugSettings.today
 			})
 		);
 	}
@@ -34,14 +64,24 @@
 <script lang="ts">
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import { buttonVariants } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import * as Popover from '$lib/components/ui/popover';
+	import { Separator } from '$lib/components/ui/separator';
 	import { Switch } from '$lib/components/ui/switch';
 
 	$effect(() => {
 		displayMoves.weekend;
 		displayMoves.early;
+		debugSettings.enabled;
+		debugSettings.today;
 		saveDisplayMoves();
+	});
+
+	$effect(() => {
+		if (debugSettings.enabled && debugSettings.today === '') {
+			debugSettings.today = today(getLocalTimeZone()).toString();
+		}
 	});
 </script>
 
@@ -77,6 +117,20 @@
 				</div>
 				<Switch id="move-weekend" bind:checked={displayMoves.weekend} />
 			</div>
+			<Separator />
+			<div class="flex items-start justify-between gap-4">
+				<div class="flex flex-col gap-1">
+					<Label for="debug-mode">Debug Mode</Label>
+					<p class="text-sm text-muted-foreground">Change which day the calendar treats as today.</p>
+				</div>
+				<Switch id="debug-mode" bind:checked={debugSettings.enabled} />
+			</div>
+			{#if debugSettings.enabled}
+				<div class="flex flex-col gap-1">
+					<Label for="debug-today">Today</Label>
+					<Input id="debug-today" type="date" bind:value={debugSettings.today} />
+				</div>
+			{/if}
 		</div>
 	</Popover.Content>
 </Popover.Root>

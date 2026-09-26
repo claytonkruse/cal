@@ -1,12 +1,14 @@
+import { parseDate } from '@internationalized/date';
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import { displayDateKey, eventDateKey, eventWhenLabel, isEarlyShift, isWeekendDue } from './dates';
+import { defaultDisplayMoves, displayDateKey, eventDateKey, eventWhenLabel, isEarlyShift, isWeekendDue } from './dates';
 import { assertCanvasFeedUrl, isPublicAddress } from './feed-url';
 import { FIXTURE_ICS } from './fixture';
 import { parseFeed } from './ics';
 
 describe('parseFeed', () => {
 	const items = parseFeed(FIXTURE_ICS);
+	const during = parseDate('2026-09-01');
 
 	it('marks assignment due dates separately from course events', () => {
 		const essay = items.find((item) => item.title === 'Essay');
@@ -38,12 +40,12 @@ describe('parseFeed', () => {
 		const essay = items.find((item) => item.title === 'Essay')!;
 		const quiz = items.find((item) => item.title === 'Reading quiz')!;
 		const lab = items.find((item) => item.title === 'Lab')!;
-		assert.equal(displayDateKey(essay, 'America/Chicago'), '2026-09-25');
-		assert.equal(isWeekendDue(essay, 'America/Chicago'), true);
-		assert.equal(displayDateKey(essay, 'UTC'), '2026-09-25');
-		assert.equal(displayDateKey(quiz, 'America/Chicago'), '2026-09-15');
-		assert.equal(isWeekendDue(quiz, 'America/Chicago'), false);
-		assert.equal(displayDateKey(lab, 'America/Chicago'), eventDateKey(lab, 'America/Chicago'));
+		assert.equal(displayDateKey(essay, 'America/Chicago', defaultDisplayMoves, during), '2026-09-25');
+		assert.equal(isWeekendDue(essay, 'America/Chicago', defaultDisplayMoves, during), true);
+		assert.equal(displayDateKey(essay, 'UTC', defaultDisplayMoves, during), '2026-09-25');
+		assert.equal(displayDateKey(quiz, 'America/Chicago', defaultDisplayMoves, during), '2026-09-15');
+		assert.equal(isWeekendDue(quiz, 'America/Chicago', defaultDisplayMoves, during), false);
+		assert.equal(displayDateKey(lab, 'America/Chicago', defaultDisplayMoves, during), eventDateKey(lab, 'America/Chicago'));
 
 		const sunday: typeof essay = {
 			...essay,
@@ -53,7 +55,7 @@ describe('parseFeed', () => {
 			date: '2026-09-27',
 			start: '2026-09-27T00:00:00.000Z'
 		};
-		assert.equal(displayDateKey(sunday, 'America/Chicago'), '2026-09-25');
+		assert.equal(displayDateKey(sunday, 'America/Chicago', defaultDisplayMoves, during), '2026-09-25');
 
 		const saturdayLab: typeof lab = {
 			...lab,
@@ -61,7 +63,7 @@ describe('parseFeed', () => {
 			date: '2026-09-26',
 			start: '2026-09-26T00:00:00.000Z'
 		};
-		assert.equal(displayDateKey(saturdayLab, 'America/Chicago'), '2026-09-26');
+		assert.equal(displayDateKey(saturdayLab, 'America/Chicago', defaultDisplayMoves, during), '2026-09-26');
 	});
 
 	it('shows assignments due before 11:59pm on the previous day', () => {
@@ -75,9 +77,9 @@ describe('parseFeed', () => {
 			start: '2026-09-16T22:00:00.000Z'
 		};
 		assert.equal(eventDateKey(afternoon, 'America/Chicago'), '2026-09-16');
-		assert.equal(displayDateKey(afternoon, 'America/Chicago'), '2026-09-15');
-		assert.equal(isEarlyShift(afternoon, 'America/Chicago'), true);
-		assert.equal(isWeekendDue(afternoon, 'America/Chicago'), false);
+		assert.equal(displayDateKey(afternoon, 'America/Chicago', defaultDisplayMoves, during), '2026-09-15');
+		assert.equal(isEarlyShift(afternoon, 'America/Chicago', defaultDisplayMoves, during), true);
+		assert.equal(isWeekendDue(afternoon, 'America/Chicago', defaultDisplayMoves, during), false);
 		assert.equal(eventWhenLabel(afternoon, 'America/Chicago'), '5:00 PM');
 
 		const justBefore: typeof essay = {
@@ -86,7 +88,7 @@ describe('parseFeed', () => {
 			start: '2026-09-16T04:58:00.000Z'
 		};
 		assert.equal(eventDateKey(justBefore, 'America/Chicago'), '2026-09-15');
-		assert.equal(displayDateKey(justBefore, 'America/Chicago'), '2026-09-14');
+		assert.equal(displayDateKey(justBefore, 'America/Chicago', defaultDisplayMoves, during), '2026-09-14');
 
 		const endOfTuesday: typeof essay = {
 			...afternoon,
@@ -94,8 +96,8 @@ describe('parseFeed', () => {
 			start: '2026-09-16T04:59:00.000Z'
 		};
 		assert.equal(eventDateKey(endOfTuesday, 'America/Chicago'), '2026-09-15');
-		assert.equal(displayDateKey(endOfTuesday, 'America/Chicago'), '2026-09-15');
-		assert.equal(isEarlyShift(endOfTuesday, 'America/Chicago'), false);
+		assert.equal(displayDateKey(endOfTuesday, 'America/Chicago', defaultDisplayMoves, during), '2026-09-15');
+		assert.equal(isEarlyShift(endOfTuesday, 'America/Chicago', defaultDisplayMoves, during), false);
 
 		const mondayAfternoon: typeof essay = {
 			...afternoon,
@@ -103,20 +105,14 @@ describe('parseFeed', () => {
 			start: '2026-09-14T22:00:00.000Z'
 		};
 		assert.equal(eventDateKey(mondayAfternoon, 'America/Chicago'), '2026-09-14');
-		assert.equal(displayDateKey(mondayAfternoon, 'America/Chicago'), '2026-09-11');
-		assert.equal(isEarlyShift(mondayAfternoon, 'America/Chicago'), false);
+		assert.equal(displayDateKey(mondayAfternoon, 'America/Chicago', defaultDisplayMoves, during), '2026-09-11');
+		assert.equal(isEarlyShift(mondayAfternoon, 'America/Chicago', defaultDisplayMoves, during), false);
 		assert.equal(
-			displayDateKey(mondayAfternoon, 'America/Chicago', {
-				weekend: false,
-				early: true
-			}),
+			displayDateKey(mondayAfternoon, 'America/Chicago', { weekend: false, early: true }, during),
 			'2026-09-13'
 		);
 		assert.equal(
-			displayDateKey(mondayAfternoon, 'America/Chicago', {
-				weekend: true,
-				early: false
-			}),
+			displayDateKey(mondayAfternoon, 'America/Chicago', { weekend: true, early: false }, during),
 			'2026-09-14'
 		);
 
@@ -126,9 +122,30 @@ describe('parseFeed', () => {
 			start: '2026-09-27T20:00:00.000Z'
 		};
 		assert.equal(eventDateKey(sundayAfternoon, 'America/Chicago'), '2026-09-27');
-		assert.equal(displayDateKey(sundayAfternoon, 'America/Chicago'), '2026-09-25');
-		assert.equal(isWeekendDue(sundayAfternoon, 'America/Chicago'), true);
-		assert.equal(isEarlyShift(sundayAfternoon, 'America/Chicago'), false);
+		assert.equal(displayDateKey(sundayAfternoon, 'America/Chicago', defaultDisplayMoves, during), '2026-09-25');
+		assert.equal(isWeekendDue(sundayAfternoon, 'America/Chicago', defaultDisplayMoves, during), true);
+		assert.equal(isEarlyShift(sundayAfternoon, 'America/Chicago', defaultDisplayMoves, during), false);
+	});
+
+	it('leaves assignments due today or earlier on their real day', () => {
+		const essay = items.find((item) => item.title === 'Essay')!;
+		const dueToday = parseDate('2026-09-26');
+		assert.equal(displayDateKey(essay, 'America/Chicago', defaultDisplayMoves, dueToday), '2026-09-26');
+		assert.equal(isWeekendDue(essay, 'America/Chicago', defaultDisplayMoves, dueToday), false);
+
+		const after = parseDate('2026-09-27');
+		assert.equal(displayDateKey(essay, 'America/Chicago', defaultDisplayMoves, after), '2026-09-26');
+		assert.equal(isWeekendDue(essay, 'America/Chicago', defaultDisplayMoves, after), false);
+
+		const afternoon: typeof essay = {
+			...essay,
+			id: 'afternoon',
+			allDay: false,
+			date: null,
+			start: '2026-09-16T22:00:00.000Z'
+		};
+		assert.equal(displayDateKey(afternoon, 'America/Chicago', defaultDisplayMoves, after), '2026-09-16');
+		assert.equal(isEarlyShift(afternoon, 'America/Chicago', defaultDisplayMoves, after), false);
 	});
 });
 

@@ -1,4 +1,4 @@
-import { CalendarDate, fromDate, getDayOfWeek, getLocalTimeZone, parseDate } from '@internationalized/date';
+import { CalendarDate, fromDate, getDayOfWeek, getLocalTimeZone, parseDate, today } from '@internationalized/date';
 import type { FeedItem } from './ics';
 
 export const COURSE_COLORS = [
@@ -95,7 +95,8 @@ export function isEarlyDue(event: FeedItem, timeZone = getLocalTimeZone()): bool
 export function assignmentPlacement(
 	event: FeedItem,
 	timeZone = getLocalTimeZone(),
-	moves: DisplayMoves = defaultDisplayMoves
+	moves: DisplayMoves = defaultDisplayMoves,
+	asOf: CalendarDate = today(timeZone)
 ): AssignmentPlacement {
 	const actualKey = eventDateKey(event, timeZone);
 	const unchanged: AssignmentPlacement = {
@@ -105,7 +106,7 @@ export function assignmentPlacement(
 		fridayNote: false,
 		earlyApplied: false
 	};
-	if (event.kind !== 'assignment') return unchanged;
+	if (event.kind !== 'assignment' || actualKey <= asOf.toString()) return unchanged;
 
 	const actual = parseDate(actualKey);
 	let date = actual;
@@ -136,25 +137,28 @@ export function assignmentPlacement(
 export function displayDateKey(
 	event: FeedItem,
 	timeZone = getLocalTimeZone(),
-	moves: DisplayMoves = defaultDisplayMoves
+	moves: DisplayMoves = defaultDisplayMoves,
+	asOf: CalendarDate = today(timeZone)
 ): string {
-	return assignmentPlacement(event, timeZone, moves).key;
+	return assignmentPlacement(event, timeZone, moves, asOf).key;
 }
 
 export function isWeekendDue(
 	event: FeedItem,
 	timeZone = getLocalTimeZone(),
-	moves: DisplayMoves = defaultDisplayMoves
+	moves: DisplayMoves = defaultDisplayMoves,
+	asOf: CalendarDate = today(timeZone)
 ): boolean {
-	return assignmentPlacement(event, timeZone, moves).weekendNote;
+	return assignmentPlacement(event, timeZone, moves, asOf).weekendNote;
 }
 
 export function isEarlyShift(
 	event: FeedItem,
 	timeZone = getLocalTimeZone(),
-	moves: DisplayMoves = defaultDisplayMoves
+	moves: DisplayMoves = defaultDisplayMoves,
+	asOf: CalendarDate = today(timeZone)
 ): boolean {
-	return assignmentPlacement(event, timeZone, moves).earlyNote;
+	return assignmentPlacement(event, timeZone, moves, asOf).earlyNote;
 }
 
 export function eventDayLabel(event: FeedItem, timeZone = getLocalTimeZone()): string {

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { CalendarDate, getLocalTimeZone, parseDate, today } from '@internationalized/date';
+	import { CalendarDate, getLocalTimeZone, parseDate } from '@internationalized/date';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import { replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
-	import DisplaySettings, { displayMoves } from '$lib/components/display-settings.svelte';
+	import DisplaySettings, { appToday, displayMoves } from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
 	import MonthCalendar from '$lib/components/month-calendar.svelte';
@@ -31,7 +31,7 @@
 				// Keep today when the day param is not a calendar date.
 			}
 		}
-		return today(getLocalTimeZone());
+		return appToday(getLocalTimeZone());
 	}
 
 	const initialDay = readDay();
@@ -45,10 +45,12 @@
 	const dismissible = $derived(data.preview || (Boolean(data.feed) && !data.error));
 	const timeZone = getLocalTimeZone();
 
+	const currentDay = $derived(appToday(timeZone));
+
 	const eventsByDay = $derived.by(() => {
 		const map = new Map<string, FeedItem[]>();
 		for (const event of data.events) {
-			const key = displayDateKey(event, timeZone, displayMoves);
+			const key = displayDateKey(event, timeZone, displayMoves, currentDay);
 			const list = map.get(key) ?? [];
 			list.push(event);
 			map.set(key, list);
@@ -56,7 +58,14 @@
 		return map;
 	});
 
-	const agenda = $derived(eventsByDay.get(selected.toString()) ?? []);
+	const agenda = $derived(
+		data.events.filter((event) => {
+			const shownOn = displayDateKey(event, timeZone, displayMoves, currentDay);
+			const dueOn = eventDateKey(event, timeZone);
+			const key = selected.toString();
+			return shownOn === key || dueOn === key;
+		})
+	);
 	const upcomingLimit = 8;
 	const upcoming = $derived.by(() => {
 		const selectedKey = selected.toString();
@@ -94,7 +103,7 @@
 			month: 'long',
 			day: 'numeric'
 		}).format(date);
-		const current = today(timeZone);
+		const current = currentDay;
 		const key = selected.toString();
 		if (key === current.toString()) return `Today, ${formatted}`;
 		if (key === current.subtract({ days: 1 }).toString()) return `Yesterday, ${formatted}`;
@@ -170,7 +179,13 @@
 					<Card.Description>Due dates from your Canvas calendar feed</Card.Description>
 				</Card.Header>
 				<Card.Content>
-					<MonthCalendar bind:month={placeholder} {selected} {eventsByDay} onSelect={selectDay} />
+					<MonthCalendar
+						bind:month={placeholder}
+						{selected}
+						{eventsByDay}
+						todayDate={currentDay}
+						onSelect={selectDay}
+					/>
 				</Card.Content>
 				{#if outsideWindow}
 					<Card.Footer>

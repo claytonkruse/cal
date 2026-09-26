@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { assignmentPlacement, eventDayLabel, eventWhenLabel } from '$lib/canvas/dates';
-	import { displayMoves } from '$lib/components/display-settings.svelte';
+	import { displayMoves, appToday } from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
@@ -20,7 +20,7 @@
 		children: Snippet;
 	} = $props();
 
-	const placement = $derived(assignmentPlacement(item, timeZone, displayMoves));
+	const placement = $derived(assignmentPlacement(item, timeZone, displayMoves, appToday(timeZone)));
 </script>
 
 <HoverCard.Root openDelay={0} closeDelay={0}>

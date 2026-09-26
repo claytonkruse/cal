@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CalendarDate, getLocalTimeZone, startOfWeek, today } from '@internationalized/date';
+	import { CalendarDate, getLocalTimeZone, startOfWeek } from '@internationalized/date';
 	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import { courseBorder, courseFill } from '$lib/canvas/dates';
@@ -12,11 +12,13 @@
 		month = $bindable(),
 		selected,
 		eventsByDay,
+		todayDate,
 		onSelect
 	}: {
 		month: CalendarDate;
 		selected: CalendarDate;
 		eventsByDay: Map<string, FeedItem[]>;
+		todayDate: CalendarDate;
 		onSelect: (day: CalendarDate) => void;
 	} = $props();
 
@@ -47,7 +49,7 @@
 		)
 	);
 
-	const todayKey = today(timeZone).toString();
+	const todayKey = $derived(todayDate.toString());
 
 	function shiftMonth(amount: number) {
 		month = month.add({ months: amount });
@@ -66,9 +68,8 @@
 				variant="outline"
 				type="button"
 				onclick={() => {
-					const current = today(timeZone);
-					month = current;
-					onSelect(current);
+					month = todayDate;
+					onSelect(todayDate);
 				}}
 			>
 				Today
