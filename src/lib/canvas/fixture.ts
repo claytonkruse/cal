@@ -1,0 +1,45 @@
+export const FIXTURE_ICS = `BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Canvas//EN
+BEGIN:VEVENT
+UID:event-assignment-42
+DTSTART:20260927T045900Z
+DTEND:20260927T045900Z
+SUMMARY:Essay
+DESCRIPTION:Biology 101
+URL:https://school.instructure.com/courses/1/assignments/42
+END:VEVENT
+BEGIN:VEVENT
+UID:event-calendar-7
+DTSTART:20260928T150000Z
+DTEND:20260928T160000Z
+SUMMARY:Lab
+DESCRIPTION:Chemistry
+URL:https://school.instructure.com/courses/2/calendar
+END:VEVENT
+BEGIN:VEVENT
+UID:event-assignment-99
+DTSTART;VALUE=DATE:20260915
+DTEND;VALUE=DATE:20260916
+SUMMARY:Reading quiz
+DESCRIPTION:History 210
+URL:https://school.instructure.com/courses/3/assignments/99
+END:VEVENT
+BEGIN:VEVENT
+UID:event-assignment-55
+DTSTART:20260916T220000Z
+DTEND:20260916T220000Z
+SUMMARY:Problem set
+DESCRIPTION:Biology 101
+URL:https://school.instructure.com/courses/1/assignments/55
+END:VEVENT
+BEGIN:VEVENT
+UID:event-assignment-70
+DTSTART:20260914T220000Z
+DTEND:20260914T220000Z
+SUMMARY:Monday draft
+DESCRIPTION:Biology 101
+URL:https://school.instructure.com/courses/1/assignments/70
+END:VEVENT
+END:VCALENDAR
+`;
