@@ -87,13 +87,20 @@
 		}
 		return { groups, shown, remaining };
 	});
-	const dayLabel = $derived(
-		new Intl.DateTimeFormat(undefined, {
+	const dayLabel = $derived.by(() => {
+		const date = selected.toDate(timeZone);
+		const formatted = new Intl.DateTimeFormat(undefined, {
 			weekday: 'long',
 			month: 'long',
 			day: 'numeric'
-		}).format(selected.toDate(timeZone))
-	);
+		}).format(date);
+		const current = today(timeZone);
+		const key = selected.toString();
+		if (key === current.toString()) return `Today, ${formatted}`;
+		if (key === current.subtract({ days: 1 }).toString()) return `Yesterday, ${formatted}`;
+		if (key === current.add({ days: 1 }).toString()) return `Tomorrow, ${formatted}`;
+		return formatted;
+	});
 
 	const outsideWindow = $derived.by(() => {
 		if (data.error || (!data.feed && !data.preview)) return false;
