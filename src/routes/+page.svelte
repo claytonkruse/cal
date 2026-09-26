@@ -6,7 +6,11 @@
 	import { replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
-	import DisplaySettings, { appToday, displayMoves } from '$lib/components/display-settings.svelte';
+	import DisplaySettings, {
+		appToday,
+		debugSettings,
+		displayMoves
+	} from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
 	import MonthCalendar from '$lib/components/month-calendar.svelte';
@@ -45,10 +49,29 @@
 	let feedDraft = $state('');
 	let syncedKey = '';
 	let linkCopied = $state(false);
+	let feedCopied = $state(false);
 
 	const bookmarkLink = $derived.by(() => {
 		const url = new URL(page.url);
 		url.searchParams.delete('day');
+		return url.href;
+	});
+	const icalLink = $derived.by(() => {
+		if (!data.feed && !data.preview) return '';
+		const url = new URL('/calendar.ics', page.url.origin);
+		if (data.preview) url.searchParams.set('fixture', '1');
+		else if (data.feed) url.searchParams.set('feed', data.feed);
+		url.searchParams.set('tz', getLocalTimeZone());
+		if (!displayMoves.weekend) url.searchParams.set('weekend', '0');
+		if (!displayMoves.early) url.searchParams.set('early', '0');
+		if (debugSettings.enabled && debugSettings.today) {
+			try {
+				parseDate(debugSettings.today);
+				url.searchParams.set('today', debugSettings.today);
+			} catch {
+				// Skip a debug day that is not a calendar date.
+			}
+		}
 		return url.href;
 	});
 	const loading = $derived(navigating.to != null);
@@ -144,12 +167,10 @@
 		dialogOpen = !data.preview && (!data.feed || data.error !== null);
 	});
 
-	async function copyCalendarLink() {
-		const link = bookmarkLink;
+	async function writeClipboard(link: string): Promise<boolean> {
 		try {
 			await navigator.clipboard.writeText(link);
-			linkCopied = true;
-			return;
+			return true;
 		} catch {
 			// Some browsers only allow the older copy command from a click.
 		}
@@ -158,8 +179,18 @@
 		field.setAttribute('readonly', '');
 		document.body.append(field);
 		field.select();
-		linkCopied = document.execCommand('copy');
+		const copied = document.execCommand('copy');
 		field.remove();
+		return copied;
+	}
+
+	async function copyCalendarLink() {
+		linkCopied = await writeClipboard(bookmarkLink);
+	}
+
+	async function copyIcalLink() {
+		if (!icalLink) return;
+		feedCopied = await writeClipboard(icalLink);
 	}
 
 	function selectDay(day: CalendarDate) {
@@ -372,6 +403,50 @@
 					<p class="text-sm text-muted-foreground">
 						Press Ctrl+D to bookmark this tab. The link includes your calendar feed, so keep the
 						bookmark private.
+					</p>
+				</Card.Content>
+			</Card.Root>
+
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>iCal feed</Card.Title>
+					<Card.Description>
+						{data.feed || data.preview
+							? 'Subscribe with the same dates shown on this calendar.'
+							: 'Add a calendar feed, then copy the iCal link.'}
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="flex flex-col gap-3">
+					<InputGroup.Root>
+						<InputGroup.Input readonly value={icalLink} aria-label="iCal feed" />
+						<InputGroup.Addon align="inline-end">
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<InputGroup.Button
+											{...props}
+											aria-label="Copy"
+											size="icon-xs"
+											disabled={!icalLink}
+											onclick={copyIcalLink}
+										>
+											{#if feedCopied}
+												<CheckIcon />
+											{:else}
+												<CopyIcon />
+											{/if}
+										</InputGroup.Button>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>
+									<p>Copy</p>
+								</Tooltip.Content>
+							</Tooltip.Root>
+						</InputGroup.Addon>
+					</InputGroup.Root>
+					<p class="text-sm text-muted-foreground">
+						The feed uses the display dates, and the link includes your calendar feed, so keep it
+						private.
 					</p>
 				</Card.Content>
 			</Card.Root>
