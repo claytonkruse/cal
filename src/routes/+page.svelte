@@ -3,6 +3,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import LinkIcon from '@lucide/svelte/icons/link';
+	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
@@ -15,6 +16,7 @@
 	import EventHover from '$lib/components/event-hover.svelte';
 	import MonthCalendar from '$lib/components/month-calendar.svelte';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
+	import * as Alert from '$lib/components/ui/alert';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
@@ -79,6 +81,13 @@
 	const timeZone = getLocalTimeZone();
 
 	const currentDay = $derived(appToday(timeZone));
+	const debugTodayLabel = $derived(
+		new Intl.DateTimeFormat(undefined, {
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric'
+		}).format(currentDay.toDate(timeZone))
+	);
 
 	const eventsByDay = $derived.by(() => {
 		const map = new Map<string, FeedItem[]>();
@@ -193,6 +202,10 @@
 		feedCopied = await writeClipboard(icalLink);
 	}
 
+	function disableDebugMode() {
+		debugSettings.enabled = false;
+	}
+
 	function selectDay(day: CalendarDate) {
 		selected = day;
 		if (placeholder.year !== day.year || placeholder.month !== day.month) {
@@ -224,6 +237,20 @@
 			</Button>
 		</div>
 	</header>
+
+	{#if debugSettings.enabled}
+		<Alert.Root class="has-data-[slot=alert-action]:pr-36">
+			<TriangleAlertIcon />
+			<Alert.Title>
+				Debug Mode is on. This calendar is treating {debugTodayLabel} as today.
+			</Alert.Title>
+			<Alert.Action class="top-1/2 -translate-y-1/2">
+				<Button variant="outline" size="sm" type="button" onclick={disableDebugMode}>
+					Exit Debug
+				</Button>
+			</Alert.Action>
+		</Alert.Root>
+	{/if}
 
 	{#if loading}
 		<div class="flex flex-col gap-4">
