@@ -57,6 +57,36 @@
 	});
 
 	const agenda = $derived(eventsByDay.get(selected.toString()) ?? []);
+	const upcomingLimit = 8;
+	const upcoming = $derived.by(() => {
+		const selectedKey = selected.toString();
+		const groups: { key: string; label: string; items: FeedItem[] }[] = [];
+		let shown = 0;
+		let remaining = 0;
+		const keys = [...eventsByDay.keys()].filter((key) => key > selectedKey).sort();
+		for (const key of keys) {
+			const items = eventsByDay.get(key) ?? [];
+			if (shown >= upcomingLimit) {
+				remaining += items.length;
+				continue;
+			}
+			const visible = items.slice(0, upcomingLimit - shown);
+			shown += visible.length;
+			remaining += items.length - visible.length;
+			const date = parseDate(key);
+			groups.push({
+				key,
+				label: new Intl.DateTimeFormat(undefined, {
+					weekday: 'short',
+					month: 'short',
+					day: 'numeric',
+					timeZone: 'UTC'
+				}).format(date.toDate('UTC')),
+				items: visible
+			});
+		}
+		return { groups, shown, remaining };
+	});
 	const dayLabel = $derived(
 		new Intl.DateTimeFormat(undefined, {
 			weekday: 'long',
@@ -144,6 +174,7 @@
 				{/if}
 			</Card.Root>
 
+			<div class="flex flex-col gap-6">
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{dayLabel}</Card.Title>
@@ -198,6 +229,59 @@
 					{/if}
 				</Card.Content>
 			</Card.Root>
+
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Upcoming</Card.Title>
+					<Card.Description>
+						{upcoming.shown === 1 ? '1 item' : `${upcoming.shown} items`}
+						after this day
+					</Card.Description>
+				</Card.Header>
+				<Card.Content>
+					{#if upcoming.groups.length === 0}
+						<p class="text-sm text-muted-foreground">
+							{data.feed || data.preview ? 'Nothing else scheduled.' : 'Add a calendar feed to see what is next.'}
+						</p>
+					{:else}
+						<div class="flex flex-col gap-4">
+							{#each upcoming.groups as group (group.key)}
+								<div class="flex flex-col gap-2">
+									<Button
+										variant="ghost"
+										size="sm"
+										class="justify-start"
+										onclick={() => selectDay(parseDate(group.key))}
+									>
+										{group.label}
+									</Button>
+									<ul class="flex flex-col gap-3">
+										{#each group.items as item (item.id)}
+											<li class="flex items-start justify-between gap-3">
+												<div class="flex min-w-0 flex-col gap-1">
+													<EventHover {item} {timeZone} class="truncate font-medium">
+														{item.title}
+													</EventHover>
+													<p class="text-sm text-muted-foreground">{eventWhenLabel(item, timeZone)}</p>
+												</div>
+												<Badge variant={item.kind === 'assignment' ? 'destructive' : 'secondary'}>
+													{item.kind === 'assignment' ? 'Due' : 'Event'}
+												</Badge>
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/each}
+							{#if upcoming.remaining > 0}
+								<p class="text-sm text-muted-foreground">
+									{upcoming.remaining === 1 ? '1 more item' : `${upcoming.remaining} more items`} later
+								</p>
+							{/if}
+						</div>
+					{/if}
+				</Card.Content>
+			</Card.Root>
+			</div>
 		</div>
 	{/if}
 </div>
