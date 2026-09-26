@@ -62,13 +62,32 @@
 </script>
 
 <script lang="ts">
+	import CalendarIcon from '@lucide/svelte/icons/calendar';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import { buttonVariants } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
+	import { DateFormatter, type DateValue } from '@internationalized/date';
+	import { Button, buttonVariants } from '$lib/components/ui/button';
+	import { Calendar } from '$lib/components/ui/calendar';
 	import { Label } from '$lib/components/ui/label';
 	import * as Popover from '$lib/components/ui/popover';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Switch } from '$lib/components/ui/switch';
+
+	const dateFormatter = new DateFormatter('en-US', { dateStyle: 'long' });
+	let dateOpen = $state(false);
+	const debugDate = $derived.by(() => {
+		if (!debugSettings.today) return undefined;
+		try {
+			return parseDate(debugSettings.today);
+		} catch {
+			return undefined;
+		}
+	});
+
+	function selectDebugDate(value: DateValue | undefined) {
+		if (!value) return;
+		debugSettings.today = value.toString();
+		dateOpen = false;
+	}
 
 	$effect(() => {
 		displayMoves.weekend;
@@ -90,7 +109,22 @@
 		<SettingsIcon />
 		<span class="sr-only">Display settings</span>
 	</Popover.Trigger>
-	<Popover.Content align="end" class="w-80">
+	<Popover.Content
+		align="end"
+		class="w-80"
+		onFocusOutside={(event) => {
+			const target = event.relatedTarget;
+			if (target instanceof Element && target.closest('[data-slot="popover-content"]')) {
+				event.preventDefault();
+			}
+		}}
+		onInteractOutside={(event) => {
+			const target = event.target;
+			if (target instanceof Element && target.closest('[data-slot="popover-content"]')) {
+				event.preventDefault();
+			}
+		}}
+	>
 		<div class="flex flex-col gap-4">
 			<div class="flex flex-col gap-1">
 				<p class="font-medium">Display</p>
@@ -128,7 +162,26 @@
 			{#if debugSettings.enabled}
 				<div class="flex flex-col gap-1">
 					<Label for="debug-today">Today</Label>
-					<Input id="debug-today" type="date" bind:value={debugSettings.today} />
+					<Popover.Root bind:open={dateOpen}>
+						<Popover.Trigger id="debug-today">
+							{#snippet child({ props })}
+								<Button {...props} variant="outline" class="w-full justify-start">
+									<CalendarIcon data-icon="inline-start" />
+									{debugDate
+										? dateFormatter.format(debugDate.toDate(getLocalTimeZone()))
+										: 'Select date'}
+								</Button>
+							{/snippet}
+						</Popover.Trigger>
+						<Popover.Content class="w-auto overflow-hidden p-0" align="start">
+							<Calendar
+								type="single"
+								value={debugDate}
+								onValueChange={selectDebugDate}
+								captionLayout="dropdown"
+							/>
+						</Popover.Content>
+					</Popover.Root>
 				</div>
 			{/if}
 		</div>

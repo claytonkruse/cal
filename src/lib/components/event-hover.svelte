@@ -70,6 +70,11 @@
 					{/if}
 				</p>
 			{/if}
+			{#if placement.todayNote}
+				<p class="text-muted-foreground">
+					Shown on today because its usual day has passed, and this assignment is not due yet.
+				</p>
+			{/if}
 			{#if item.url}
 				<Button href={item.url} target="_blank" rel="noreferrer" variant="link" size="sm">
 					Open in Canvas

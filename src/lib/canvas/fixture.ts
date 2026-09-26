@@ -41,5 +41,13 @@ SUMMARY:Monday draft
 DESCRIPTION:Biology 101
 URL:https://school.instructure.com/courses/1/assignments/70
 END:VEVENT
+BEGIN:VEVENT
+UID:event-assignment-80
+DTSTART:20260921T220000Z
+DTEND:20260921T220000Z
+SUMMARY:HW2
+DESCRIPTION:Biology 101
+URL:https://school.instructure.com/courses/1/assignments/80
+END:VEVENT
 END:VCALENDAR
 `;

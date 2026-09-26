@@ -74,6 +74,7 @@ export type AssignmentPlacement = {
 	earlyNote: boolean;
 	fridayNote: boolean;
 	earlyApplied: boolean;
+	todayNote: boolean;
 };
 
 function isWeekendDay(date: CalendarDate): boolean {
@@ -92,23 +93,23 @@ export function isEarlyDue(event: FeedItem, timeZone = getLocalTimeZone()): bool
 	return event.kind === 'assignment' && !event.allDay && !isEndOfDay(event.start, timeZone);
 }
 
-export function assignmentPlacement(
-	event: FeedItem,
-	timeZone = getLocalTimeZone(),
-	moves: DisplayMoves = defaultDisplayMoves,
-	asOf: CalendarDate = today(timeZone)
-): AssignmentPlacement {
-	const actualKey = eventDateKey(event, timeZone);
-	const unchanged: AssignmentPlacement = {
-		key: actualKey,
+function blankPlacement(key: string): AssignmentPlacement {
+	return {
+		key,
 		weekendNote: false,
 		earlyNote: false,
 		fridayNote: false,
-		earlyApplied: false
+		earlyApplied: false,
+		todayNote: false
 	};
-	if (event.kind !== 'assignment' || actualKey <= asOf.toString()) return unchanged;
+}
 
-	const actual = parseDate(actualKey);
+function movedAssignmentDate(
+	actual: CalendarDate,
+	event: FeedItem,
+	timeZone: string,
+	moves: DisplayMoves
+): { date: CalendarDate; earlyApplied: boolean; weekendNote: boolean; fridayNote: boolean } {
 	let date = actual;
 	let earlyApplied = false;
 	if (moves.early && isEarlyDue(event, timeZone)) {
@@ -124,13 +125,33 @@ export function assignmentPlacement(
 		else fridayNote = true;
 	}
 
-	const key = date.toString();
+	return { date, earlyApplied, weekendNote, fridayNote };
+}
+
+export function assignmentPlacement(
+	event: FeedItem,
+	timeZone = getLocalTimeZone(),
+	moves: DisplayMoves = defaultDisplayMoves,
+	asOf: CalendarDate = today(timeZone)
+): AssignmentPlacement {
+	const actualKey = eventDateKey(event, timeZone);
+	if (event.kind !== 'assignment') return blankPlacement(actualKey);
+
+	const todayKey = asOf.toString();
+	if (actualKey <= todayKey) return blankPlacement(actualKey);
+
+	const actual = parseDate(actualKey);
+	const moved = movedAssignmentDate(actual, event, timeZone, moves);
+	const movedKey = moved.date.toString();
+	if (movedKey < todayKey) return { ...blankPlacement(todayKey), todayNote: true };
+
 	return {
-		key,
-		weekendNote,
-		earlyNote: earlyApplied && key === actual.subtract({ days: 1 }).toString(),
-		fridayNote,
-		earlyApplied
+		key: movedKey,
+		weekendNote: moved.weekendNote,
+		earlyNote: moved.earlyApplied && movedKey === actual.subtract({ days: 1 }).toString(),
+		fridayNote: moved.fridayNote,
+		earlyApplied: moved.earlyApplied,
+		todayNote: false
 	};
 }
 

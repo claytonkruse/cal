@@ -1,7 +1,15 @@
 import { parseDate } from '@internationalized/date';
 import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
-import { defaultDisplayMoves, displayDateKey, eventDateKey, eventWhenLabel, isEarlyShift, isWeekendDue } from './dates';
+import {
+	assignmentPlacement,
+	defaultDisplayMoves,
+	displayDateKey,
+	eventDateKey,
+	eventWhenLabel,
+	isEarlyShift,
+	isWeekendDue
+} from './dates';
 import { assertCanvasFeedUrl, isPublicAddress } from './feed-url';
 import { FIXTURE_ICS } from './fixture';
 import { parseFeed } from './ics';
@@ -146,6 +154,39 @@ describe('parseFeed', () => {
 		};
 		assert.equal(displayDateKey(afternoon, 'America/Chicago', defaultDisplayMoves, after), '2026-09-16');
 		assert.equal(isEarlyShift(afternoon, 'America/Chicago', defaultDisplayMoves, after), false);
+	});
+
+	it('keeps an assignment on today after its display day until the real due date passes', () => {
+		const essay = items.find((item) => item.title === 'Essay')!;
+		const homework: typeof essay = {
+			...essay,
+			id: 'hw2',
+			title: 'HW2',
+			allDay: false,
+			date: null,
+			start: '2026-09-21T22:00:00.000Z'
+		};
+		assert.equal(eventDateKey(homework, 'America/Chicago'), '2026-09-21');
+		assert.equal(displayDateKey(homework, 'America/Chicago', defaultDisplayMoves, during), '2026-09-18');
+
+		const onDisplayDay = parseDate('2026-09-18');
+		assert.equal(displayDateKey(homework, 'America/Chicago', defaultDisplayMoves, onDisplayDay), '2026-09-18');
+		assert.equal(assignmentPlacement(homework, 'America/Chicago', defaultDisplayMoves, onDisplayDay).todayNote, false);
+
+		const sunday = parseDate('2026-09-20');
+		const held = assignmentPlacement(homework, 'America/Chicago', defaultDisplayMoves, sunday);
+		assert.equal(held.key, '2026-09-20');
+		assert.equal(held.todayNote, true);
+		assert.equal(held.fridayNote, false);
+		assert.equal(held.weekendNote, false);
+		assert.equal(held.earlyNote, false);
+
+		const dueDay = parseDate('2026-09-21');
+		assert.equal(displayDateKey(homework, 'America/Chicago', defaultDisplayMoves, dueDay), '2026-09-21');
+		assert.equal(assignmentPlacement(homework, 'America/Chicago', defaultDisplayMoves, dueDay).todayNote, false);
+
+		const afterDue = parseDate('2026-09-22');
+		assert.equal(displayDateKey(homework, 'America/Chicago', defaultDisplayMoves, afterDue), '2026-09-21');
 	});
 });
 
