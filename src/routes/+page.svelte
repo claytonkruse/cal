@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { CalendarDate, getLocalTimeZone, parseDate } from '@internationalized/date';
+	import CheckIcon from '@lucide/svelte/icons/check';
+	import CopyIcon from '@lucide/svelte/icons/copy';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import { replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
@@ -15,6 +17,8 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Field from '$lib/components/ui/field';
 	import { Input } from '$lib/components/ui/input';
+	import * as InputGroup from '$lib/components/ui/input-group';
+	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -40,7 +44,13 @@
 	let dialogOpen = $state(true);
 	let feedDraft = $state('');
 	let syncedKey = '';
+	let linkCopied = $state(false);
 
+	const bookmarkLink = $derived.by(() => {
+		const url = new URL(page.url);
+		url.searchParams.delete('day');
+		return url.href;
+	});
 	const loading = $derived(navigating.to != null);
 	const dismissible = $derived(data.preview || (Boolean(data.feed) && !data.error));
 	const timeZone = getLocalTimeZone();
@@ -133,6 +143,24 @@
 		feedDraft = data.feed ?? '';
 		dialogOpen = !data.preview && (!data.feed || data.error !== null);
 	});
+
+	async function copyCalendarLink() {
+		const link = bookmarkLink;
+		try {
+			await navigator.clipboard.writeText(link);
+			linkCopied = true;
+			return;
+		} catch {
+			// Some browsers only allow the older copy command from a click.
+		}
+		const field = document.createElement('textarea');
+		field.value = link;
+		field.setAttribute('readonly', '');
+		document.body.append(field);
+		field.select();
+		linkCopied = document.execCommand('copy');
+		field.remove();
+	}
 
 	function selectDay(day: CalendarDate) {
 		selected = day;
@@ -301,6 +329,50 @@
 							{/if}
 						</div>
 					{/if}
+				</Card.Content>
+			</Card.Root>
+
+			<Card.Root>
+				<Card.Header>
+					<Card.Title>Bookmark</Card.Title>
+					<Card.Description>
+						{data.feed || data.preview
+							? 'Bookmark this page to open this calendar again.'
+							: 'Add a calendar feed, then bookmark this page.'}
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="flex flex-col gap-3">
+					<InputGroup.Root>
+						<InputGroup.Input readonly value={bookmarkLink} aria-label="Calendar link" />
+						<InputGroup.Addon align="inline-end">
+							<Tooltip.Root>
+								<Tooltip.Trigger>
+									{#snippet child({ props })}
+										<InputGroup.Button
+											{...props}
+											aria-label="Copy"
+											size="icon-xs"
+											disabled={!data.feed && !data.preview}
+											onclick={copyCalendarLink}
+										>
+											{#if linkCopied}
+												<CheckIcon />
+											{:else}
+												<CopyIcon />
+											{/if}
+										</InputGroup.Button>
+									{/snippet}
+								</Tooltip.Trigger>
+								<Tooltip.Content>
+									<p>Copy</p>
+								</Tooltip.Content>
+							</Tooltip.Root>
+						</InputGroup.Addon>
+					</InputGroup.Root>
+					<p class="text-sm text-muted-foreground">
+						Press Ctrl+D to bookmark this tab. The link includes your calendar feed, so keep the
+						bookmark private.
+					</p>
 				</Card.Content>
 			</Card.Root>
 			</div>
