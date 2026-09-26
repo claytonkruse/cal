@@ -1,5 +1,6 @@
 import { dev } from '$app/environment';
 import { today, parseDate } from '@internationalized/date';
+import { readCanvasFeed } from '$lib/canvas/canvas-feed-param';
 import { fetchCanvasFeed } from '$lib/canvas/fetch-feed';
 import { FeedUrlError } from '$lib/canvas/feed-url';
 import { FIXTURE_ICS } from '$lib/canvas/fixture';
@@ -45,7 +46,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		if (!dev) return plain('Not found', 404);
 		source = FIXTURE_ICS;
 	} else {
-		const feed = url.searchParams.get('feed');
+		const feed = readCanvasFeed(url.searchParams);
 		if (!feed) return plain('Missing calendar feed.', 400);
 		try {
 			source = await fetchCanvasFeed(feed);

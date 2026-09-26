@@ -6,6 +6,7 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import { replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
+	import { canvasFeedParam } from '$lib/canvas/canvas-feed-param';
 	import { courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
 	import DisplaySettings, {
 		appToday,
@@ -62,7 +63,7 @@
 		if (!data.feed && !data.preview) return '';
 		const url = new URL('/calendar.ics', page.url.origin);
 		if (data.preview) url.searchParams.set('fixture', '1');
-		else if (data.feed) url.searchParams.set('feed', data.feed);
+		else if (data.feed) url.searchParams.set(canvasFeedParam, data.feed);
 		url.searchParams.set('tz', getLocalTimeZone());
 		if (!displayMoves.weekend) url.searchParams.set('weekend', '0');
 		if (!displayMoves.early) url.searchParams.set('early', '0');
@@ -497,10 +498,10 @@
 		<form method="GET" class="flex flex-col gap-4">
 			<Field.FieldGroup>
 				<Field.Field data-invalid={data.error ? 'true' : undefined}>
-					<Field.FieldLabel for="feed">Calendar feed URL</Field.FieldLabel>
+					<Field.FieldLabel for="canvas-feed">Calendar feed URL</Field.FieldLabel>
 					<Input
-						id="feed"
-						name="feed"
+						id="canvas-feed"
+						name={canvasFeedParam}
 						type="url"
 						required
 						autocomplete="off"

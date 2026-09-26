@@ -1,4 +1,5 @@
 import { dev } from '$app/environment';
+import { readCanvasFeed } from '$lib/canvas/canvas-feed-param';
 import { fetchCanvasFeed } from '$lib/canvas/fetch-feed';
 import { FeedUrlError } from '$lib/canvas/feed-url';
 import { FIXTURE_ICS } from '$lib/canvas/fixture';
@@ -15,7 +16,7 @@ export type CalendarPageData = {
 export const ssr = false;
 
 export const load: PageServerLoad = async ({ url }): Promise<CalendarPageData> => {
-	const feed = url.searchParams.get('feed');
+	const feed = readCanvasFeed(url.searchParams);
 
 	if (!feed) {
 		if (dev && url.searchParams.get('fixture') === '1') {
