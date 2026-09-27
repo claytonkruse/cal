@@ -27,15 +27,35 @@
 			? item.location
 			: null
 	);
+	let open = $state(false);
+	let suppress = $state(false);
+	let closedAt = 0;
+
+	function closeCard() {
+		open = false;
+		suppress = true;
+		closedAt = performance.now();
+	}
 </script>
 
-<HoverCard.Root openDelay={0} closeDelay={0}>
+<HoverCard.Root bind:open openDelay={0} closeDelay={0}>
 	<HoverCard.Trigger>
 		{#snippet child({ props })}
 			<span
 				{...props}
 				role="presentation"
 				class={cn(typeof props.class === 'string' ? props.class : undefined, className)}
+				onpointerenter={(event) => {
+					if (suppress) {
+						if (performance.now() - closedAt < 300) return;
+						suppress = false;
+					}
+					if (typeof props.onpointerenter === 'function') props.onpointerenter(event);
+				}}
+				onpointerleave={(event) => {
+					if (typeof props.onpointerleave === 'function') props.onpointerleave(event);
+					suppress = false;
+				}}
 			>
 				{@render children()}
 			</span>
@@ -88,10 +108,13 @@
 				</p>
 			{/if}
 			{#if item.url}
-				<Button href={item.url} target="_blank" rel="noreferrer" variant="link" size="sm">
+				<Button href={item.url} target="_blank" rel="noreferrer" variant="default" size="sm">
 					Open in Canvas
 				</Button>
 			{/if}
+			<Button type="button" variant="outline" size="sm" class="w-full" onclick={closeCard}>
+				Close
+			</Button>
 		</div>
 	</HoverCard.Content>
 </HoverCard.Root>

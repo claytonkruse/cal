@@ -309,27 +309,24 @@
 												<EventHover {item} {timeZone} class="truncate font-medium">
 													{item.title}
 												</EventHover>
-												<p class="text-sm text-muted-foreground">{eventWhenLabel(item, timeZone)}</p>
+												{#if eventWhenLabel(item, timeZone) !== 'Due'}
+													<p class="text-sm text-muted-foreground">{eventWhenLabel(item, timeZone)}</p>
+												{/if}
 											</div>
 											<Badge variant={item.kind === 'assignment' ? 'destructive' : 'secondary'}>
 												{item.kind === 'assignment' ? 'Due' : 'Event'}
 											</Badge>
 										</div>
 										{#if item.course}
-											<p class="flex items-center gap-2 text-sm">
+											<p class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
 												<span
 													class={cn(
 														'size-2 shrink-0 rounded-full',
 														courseColor(item.course)
 													)}
 												></span>
-												{item.course}
+												<span class="min-w-0 truncate">{item.course}</span>
 											</p>
-										{/if}
-										{#if item.url}
-											<Button href={item.url} target="_blank" rel="noreferrer" variant="link" size="sm">
-												Open in Canvas
-											</Button>
 										{/if}
 									</li>
 								{/each}
