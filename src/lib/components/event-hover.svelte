@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { assignmentPlacement, courseText, eventClockLabel, eventDayLabel } from '$lib/canvas/dates';
+	import { assignmentPlacement, courseText, eventClockLabel, eventDayLabel, moveNote } from '$lib/canvas/dates';
 	import { displayMoves, appToday } from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import { Badge } from '$lib/components/ui/badge';
@@ -21,6 +21,7 @@
 	} = $props();
 
 	const placement = $derived(assignmentPlacement(item, timeZone, displayMoves, appToday(timeZone)));
+	const note = $derived(moveNote(placement));
 	const clockLabel = $derived(eventClockLabel(item, timeZone));
 	const locationLabel = $derived(
 		item.location && item.location !== item.url && !/^https?:\/\//i.test(item.location)
@@ -82,30 +83,8 @@
 			{#if item.details}
 				<p class="line-clamp-6 whitespace-pre-line text-muted-foreground">{item.details}</p>
 			{/if}
-			{#if placement.weekendNote}
-				<p class="text-muted-foreground">
-					Shown on the Friday before because this assignment is due on the weekend.
-				</p>
-			{/if}
-			{#if placement.earlyNote}
-				<p class="text-muted-foreground">
-					Shown on the day before because this assignment is due before 11:59 PM.
-				</p>
-			{/if}
-			{#if placement.fridayNote}
-				<p class="text-muted-foreground">
-					{#if placement.earlyApplied}
-						Shown on the previous Friday because this assignment is due before 11:59 PM, and
-						assignments are not shown on the weekend.
-					{:else}
-						Shown on the previous Friday because assignments are not shown on the weekend.
-					{/if}
-				</p>
-			{/if}
-			{#if placement.todayNote}
-				<p class="text-muted-foreground">
-					Shown on today because its usual day has passed, and this assignment is not due yet.
-				</p>
+			{#if note}
+				<p class="text-muted-foreground">{note}</p>
 			{/if}
 			{#if item.url}
 				<Button href={item.url} target="_blank" rel="noreferrer" variant="default" size="sm">

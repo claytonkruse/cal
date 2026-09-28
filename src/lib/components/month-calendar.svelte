@@ -5,6 +5,8 @@
 	import { courseBorder, courseFill } from '$lib/canvas/dates';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
+	import GhostHint from '$lib/components/ghost-hint.svelte';
+	import MoveHint from '$lib/components/move-hint.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils';
 
@@ -12,12 +14,14 @@
 		month = $bindable(),
 		selected,
 		eventsByDay,
+		ghostsByDay,
 		todayDate,
 		onSelect
 	}: {
 		month: CalendarDate;
 		selected: CalendarDate;
 		eventsByDay: Map<string, FeedItem[]>;
+		ghostsByDay: Map<string, FeedItem[]>;
 		todayDate: CalendarDate;
 		onSelect: (day: CalendarDate) => void;
 	} = $props();
@@ -89,7 +93,10 @@
 			{#each weeks as week (week[0].toString())}
 				{#each week as day (day.toString())}
 					{@const key = day.toString()}
-					{@const items = eventsByDay.get(key) ?? []}
+					{@const items = [
+						...(eventsByDay.get(key) ?? []).map((item) => ({ item, ghost: false })),
+						...(ghostsByDay.get(key) ?? []).map((item) => ({ item, ghost: true }))
+					]}
 					{@const outside = day.month !== month.month}
 					<button
 						type="button"
@@ -111,18 +118,24 @@
 							{day.day}
 						</span>
 						<span class="flex flex-col gap-0.5">
-							{#each items.slice(0, visibleEvents) as item (item.id)}
-								<EventHover
-									{item}
-									{timeZone}
+							{#each items.slice(0, visibleEvents) as entry (`${entry.ghost ? 'ghost' : 'item'}-${entry.item.id}`)}
+								<span
 									class={cn(
-										'block max-w-full truncate rounded-sm border-l-2 py-px pl-1 text-left text-xs',
-										courseBorder(item.course ?? item.title),
-										courseFill(item.course ?? item.title)
+										'flex max-w-full items-center gap-0.5 rounded-sm border-l-2 py-px pr-0.5 pl-1 text-left text-xs',
+										courseBorder(entry.item.course ?? entry.item.title),
+										courseFill(entry.item.course ?? entry.item.title),
+										entry.ghost && 'opacity-40'
 									)}
 								>
-									{item.title}
-								</EventHover>
+									<EventHover item={entry.item} {timeZone} class="min-w-0 flex-1 truncate">
+										{entry.item.title}
+									</EventHover>
+									{#if entry.ghost}
+										<GhostHint item={entry.item} {timeZone} />
+									{:else}
+										<MoveHint item={entry.item} {timeZone} />
+									{/if}
+								</span>
 							{/each}
 							{#if items.length > visibleEvents}
 								<span class="px-1 text-xs text-muted-foreground">

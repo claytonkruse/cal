@@ -7,14 +7,18 @@
 	import { replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { canvasFeedParam } from '$lib/canvas/canvas-feed-param';
+	import { description } from '$lib/site';
 	import { courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
 	import DisplaySettings, {
 		appToday,
 		debugSettings,
-		displayMoves
+		displayMoves,
+		hideDueDates
 	} from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
+	import GhostHint from '$lib/components/ghost-hint.svelte';
+	import MoveHint from '$lib/components/move-hint.svelte';
 	import MonthCalendar from '$lib/components/month-calendar.svelte';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -101,23 +105,44 @@
 		return map;
 	});
 
-	const agenda = $derived(
-		data.events.filter((event) => {
-			const shownOn = displayDateKey(event, timeZone, displayMoves, currentDay);
-			const dueOn = eventDateKey(event, timeZone);
-			const key = selected.toString();
-			return shownOn === key || dueOn === key;
-		})
-	);
+	const ghostsByDay = $derived.by(() => {
+		const map = new Map<string, FeedItem[]>();
+		if (hideDueDates.enabled) return map;
+		for (const event of data.events) {
+			if (event.kind !== 'assignment') continue;
+			const actual = eventDateKey(event, timeZone);
+			const shown = displayDateKey(event, timeZone, displayMoves, currentDay);
+			if (actual === shown) continue;
+			const list = map.get(actual) ?? [];
+			list.push(event);
+			map.set(actual, list);
+		}
+		return map;
+	});
+
+	const agenda = $derived.by(() => {
+		const key = selected.toString();
+		const solid = eventsByDay.get(key) ?? [];
+		const ghosts = ghostsByDay.get(key) ?? [];
+		return [
+			...solid.map((item) => ({ item, ghost: false })),
+			...ghosts.map((item) => ({ item, ghost: true }))
+		];
+	});
 	const upcomingLimit = 8;
 	const upcoming = $derived.by(() => {
 		const selectedKey = selected.toString();
-		const groups: { key: string; label: string; items: FeedItem[] }[] = [];
+		const groups: { key: string; label: string; items: { item: FeedItem; ghost: boolean }[] }[] = [];
 		let shown = 0;
 		let remaining = 0;
-		const keys = [...eventsByDay.keys()].filter((key) => key > selectedKey).sort();
+		const keys = [...new Set([...eventsByDay.keys(), ...ghostsByDay.keys()])]
+			.filter((key) => key > selectedKey)
+			.sort();
 		for (const key of keys) {
-			const items = eventsByDay.get(key) ?? [];
+			const items = [
+				...(eventsByDay.get(key) ?? []).map((item) => ({ item, ghost: false })),
+				...(ghostsByDay.get(key) ?? []).map((item) => ({ item, ghost: true }))
+			];
 			if (shown >= upcomingLimit) {
 				remaining += items.length;
 				continue;
@@ -220,14 +245,14 @@
 </script>
 
 <svelte:head>
-	<title>Canvas calendar</title>
+	<title>Canvas Cal</title>
 </svelte:head>
 
 <div class="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-6">
 	<header class="flex flex-wrap items-center justify-between gap-4">
 		<div class="flex flex-col gap-1">
-			<h1 class="text-2xl font-semibold tracking-tight">Canvas calendar</h1>
-			<p class="text-sm text-muted-foreground">Assignment due dates and course events</p>
+			<h1 class="text-2xl font-semibold tracking-tight">Canvas Cal</h1>
+			<p class="text-sm text-muted-foreground">{description}</p>
 		</div>
 		<div class="flex items-center gap-2">
 			<DisplaySettings />
@@ -270,6 +295,7 @@
 						bind:month={placeholder}
 						{selected}
 						{eventsByDay}
+						{ghostsByDay}
 						todayDate={currentDay}
 						onSelect={selectDay}
 					/>
@@ -299,33 +325,44 @@
 					{:else}
 						<ScrollArea class="h-96">
 							<ul class="flex flex-col gap-3 pr-3">
-								{#each agenda as item, index (item.id)}
+								{#each agenda as entry, index (`${entry.ghost ? 'ghost' : 'item'}-${entry.item.id}`)}
 									{#if index > 0}
 										<li aria-hidden="true"><Separator /></li>
 									{/if}
-									<li class="flex flex-col gap-2">
+									<li class={cn('flex flex-col gap-2', entry.ghost && 'opacity-40')}>
 										<div class="flex items-start justify-between gap-3">
 											<div class="flex min-w-0 flex-col gap-1">
-												<EventHover {item} {timeZone} class="truncate font-medium">
-													{item.title}
+												<EventHover item={entry.item} {timeZone} class="truncate font-medium">
+													{entry.item.title}
 												</EventHover>
-												{#if eventWhenLabel(item, timeZone) !== 'Due'}
-													<p class="text-sm text-muted-foreground">{eventWhenLabel(item, timeZone)}</p>
+												{#if eventWhenLabel(entry.item, timeZone) !== 'Due'}
+													<p class="text-sm text-muted-foreground">
+														{eventWhenLabel(entry.item, timeZone)}
+													</p>
 												{/if}
 											</div>
-											<Badge variant={item.kind === 'assignment' ? 'destructive' : 'secondary'}>
-												{item.kind === 'assignment' ? 'Due' : 'Event'}
-											</Badge>
+											<div class="flex shrink-0 items-center gap-1.5">
+												<Badge
+													variant={entry.item.kind === 'assignment' ? 'destructive' : 'secondary'}
+												>
+													{entry.item.kind === 'assignment' ? 'Due' : 'Event'}
+												</Badge>
+												{#if entry.ghost}
+													<GhostHint item={entry.item} {timeZone} />
+												{:else}
+													<MoveHint item={entry.item} {timeZone} />
+												{/if}
+											</div>
 										</div>
-										{#if item.course}
+										{#if entry.item.course}
 											<p class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
 												<span
 													class={cn(
 														'size-2 shrink-0 rounded-full',
-														courseColor(item.course)
+														courseColor(entry.item.course)
 													)}
 												></span>
-												<span class="min-w-0 truncate">{item.course}</span>
+												<span class="min-w-0 truncate">{entry.item.course}</span>
 											</p>
 										{/if}
 									</li>
@@ -362,17 +399,28 @@
 										{group.label}
 									</Button>
 									<ul class="flex flex-col gap-3">
-										{#each group.items as item (item.id)}
-											<li class="flex items-start justify-between gap-3">
+										{#each group.items as entry (`${entry.ghost ? 'ghost' : 'item'}-${entry.item.id}`)}
+											<li class={cn('flex items-start justify-between gap-3', entry.ghost && 'opacity-40')}>
 												<div class="flex min-w-0 flex-col gap-1">
-													<EventHover {item} {timeZone} class="truncate font-medium">
-														{item.title}
+													<EventHover item={entry.item} {timeZone} class="truncate font-medium">
+														{entry.item.title}
 													</EventHover>
-													<p class="text-sm text-muted-foreground">{eventWhenLabel(item, timeZone)}</p>
+													<p class="text-sm text-muted-foreground">
+														{eventWhenLabel(entry.item, timeZone)}
+													</p>
 												</div>
-												<Badge variant={item.kind === 'assignment' ? 'destructive' : 'secondary'}>
-													{item.kind === 'assignment' ? 'Due' : 'Event'}
-												</Badge>
+												<div class="flex shrink-0 items-center gap-1.5">
+													<Badge
+														variant={entry.item.kind === 'assignment' ? 'destructive' : 'secondary'}
+													>
+														{entry.item.kind === 'assignment' ? 'Due' : 'Event'}
+													</Badge>
+													{#if entry.ghost}
+														<GhostHint item={entry.item} {timeZone} />
+													{:else}
+														<MoveHint item={entry.item} {timeZone} />
+													{/if}
+												</div>
 											</li>
 										{/each}
 									</ul>
@@ -478,6 +526,26 @@
 			</div>
 		</div>
 	{/if}
+
+	<footer class="border-t pt-4 text-sm text-muted-foreground">
+		<section id="about" class="flex flex-col gap-2 text-left">
+			<p>
+				Canvas Cal shows assignment due dates and course events from a Canvas calendar feed.
+				It moves assignment dates up to where they intuitively belong.
+			</p>
+			<p>
+				© 2026
+				<a
+					href="https://clayk.cc"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="text-foreground underline underline-offset-4"
+				>
+					Clayton Kruse
+				</a>
+			</p>
+		</section>
+	</footer>
 </div>
 
 <Dialog.Root bind:open={dialogOpen}>

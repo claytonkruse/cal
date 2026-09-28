@@ -101,10 +101,10 @@ export function buildAdjustedCalendar(
 	const lines = [
 		'BEGIN:VCALENDAR',
 		'VERSION:2.0',
-		'PRODID:-//Canvas Calendar//EN',
+		'PRODID:-//Canvas Cal//EN',
 		'CALSCALE:GREGORIAN',
 		'METHOD:PUBLISH',
-		prop('X-WR-CALNAME', 'Canvas calendar'),
+		prop('X-WR-CALNAME', 'Canvas Cal'),
 		`X-WR-TIMEZONE:${timeZone}`
 	];
 	for (const event of events) lines.push(...eventLines(event, timeZone, moves, asOf));

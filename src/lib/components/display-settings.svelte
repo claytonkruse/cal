@@ -34,8 +34,21 @@
 		}
 	}
 
+	function loadHideDueDates(): boolean {
+		if (typeof localStorage === 'undefined') return false;
+		try {
+			const raw = localStorage.getItem(storageKey);
+			if (!raw) return false;
+			const parsed = JSON.parse(raw) as { hideDueDates?: boolean };
+			return parsed.hideDueDates === true;
+		} catch {
+			return false;
+		}
+	}
+
 	export const displayMoves = $state<DisplayMoves>(loadMoves());
 	export const debugSettings = $state(loadDebug());
+	export const hideDueDates = $state({ enabled: loadHideDueDates() });
 
 	export function appToday(timeZone: string): CalendarDate {
 		if (debugSettings.enabled && debugSettings.today) {
@@ -54,6 +67,7 @@
 			JSON.stringify({
 				weekend: displayMoves.weekend,
 				early: displayMoves.early,
+				hideDueDates: hideDueDates.enabled,
 				debug: debugSettings.enabled,
 				debugToday: debugSettings.today
 			})
@@ -92,6 +106,7 @@
 	$effect(() => {
 		displayMoves.weekend;
 		displayMoves.early;
+		hideDueDates.enabled;
 		debugSettings.enabled;
 		debugSettings.today;
 		saveDisplayMoves();
@@ -150,6 +165,15 @@
 					</p>
 				</div>
 				<Switch id="move-weekend" bind:checked={displayMoves.weekend} />
+			</div>
+			<div class="flex items-start justify-between gap-4">
+				<div class="flex flex-col gap-1">
+					<Label for="hide-due-dates">Hide due dates</Label>
+					<p class="text-sm text-muted-foreground">
+						Remove the faded assignment left on the actual due date.
+					</p>
+				</div>
+				<Switch id="hide-due-dates" bind:checked={hideDueDates.enabled} />
 			</div>
 			<Separator />
 			<div class="flex items-start justify-between gap-4">

@@ -179,6 +179,25 @@ export function displayDateKey(
 	return assignmentPlacement(event, timeZone, moves, asOf).key;
 }
 
+export function moveNote(placement: AssignmentPlacement): string | null {
+	if (placement.todayNote) {
+		return 'Shown on today because its usual day has passed, and this assignment is not due yet.';
+	}
+	if (placement.fridayNote) {
+		if (placement.earlyApplied) {
+			return 'Shown on the previous Friday because this assignment is due before 11:59 PM, and assignments are not shown on the weekend.';
+		}
+		return 'Shown on the previous Friday because assignments are not shown on the weekend.';
+	}
+	if (placement.weekendNote) {
+		return 'Shown on the Friday before because this assignment is due on the weekend.';
+	}
+	if (placement.earlyNote) {
+		return 'Shown on the day before because this assignment is due before 11:59 PM.';
+	}
+	return null;
+}
+
 export function isWeekendDue(
 	event: FeedItem,
 	timeZone = getLocalTimeZone(),
@@ -233,6 +252,12 @@ export function eventClockLabel(event: FeedItem, timeZone = getLocalTimeZone()):
 		return `${clockTime(event.start, timeZone)} – ${clockTime(event.end, timeZone)}`;
 	}
 	return clockTime(event.start, timeZone);
+}
+
+export function actualDueLabel(event: FeedItem, timeZone = getLocalTimeZone()): string {
+	const day = eventDayLabel(event, timeZone);
+	const clock = eventClockLabel(event, timeZone);
+	return clock ? `${day}, ${clock}` : day;
 }
 
 export function eventWhenLabel(event: FeedItem, timeZone = getLocalTimeZone()): string {

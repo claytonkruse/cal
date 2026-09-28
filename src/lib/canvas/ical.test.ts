@@ -34,4 +34,13 @@ describe('adjusted iCal feed', () => {
 		const ics = buildAdjustedCalendar(events, timeZone, defaultDisplayMoves, parseDate('2026-09-01'));
 		expect(eventBlock(ics, 'event-calendar-7')).toContain('DTSTART:20260928T150000Z');
 	});
+
+	it('emits a moved assignment once, on its display date', () => {
+		const ics = buildAdjustedCalendar(events, timeZone, defaultDisplayMoves, parseDate('2026-09-01'));
+		expect(ics.match(/UID:event-assignment-80/g)).toHaveLength(1);
+		expect(eventBlock(ics, 'event-assignment-80')).toContain('DTSTART:20260918T220000Z');
+		expect(ics).not.toContain('DTSTART:20260921T220000Z');
+		expect(ics.match(/UID:event-assignment-42/g)).toHaveLength(1);
+		expect(ics).not.toContain('DTSTART:20260927T045900Z');
+	});
 });
