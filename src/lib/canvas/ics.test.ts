@@ -70,13 +70,13 @@ END:VCALENDAR`);
 		assert.equal(quiz?.allDay, true);
 		assert.equal(quiz?.date, '2026-09-15');
 		assert.equal(eventDateKey(quiz!, 'America/Chicago'), '2026-09-15');
-		assert.equal(eventWhenLabel(quiz!, 'America/Chicago'), 'Due');
+		assert.equal(eventWhenLabel(quiz!, 'America/Chicago'), '11:59 PM');
 	});
 
 	it('buckets a 11:59pm due date in the viewer timezone', () => {
 		const essay = items.find((item) => item.title === 'Essay')!;
 		assert.equal(eventDateKey(essay, 'America/Chicago'), '2026-09-26');
-		assert.equal(eventWhenLabel(essay, 'America/Chicago'), 'Due');
+		assert.equal(eventWhenLabel(essay, 'America/Chicago'), '11:59 PM');
 		assert.equal(eventDateKey(essay, 'UTC'), '2026-09-27');
 	});
 

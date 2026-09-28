@@ -262,7 +262,7 @@ export function actualDueLabel(event: FeedItem, timeZone = getLocalTimeZone()): 
 
 export function eventWhenLabel(event: FeedItem, timeZone = getLocalTimeZone()): string {
 	if (event.kind === 'assignment') {
-		if (event.allDay || isEndOfDay(event.start, timeZone)) return 'Due';
+		if (event.allDay) return '11:59 PM';
 		return clockTime(event.start, timeZone);
 	}
 	if (event.allDay) return 'All day';

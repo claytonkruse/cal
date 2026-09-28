@@ -17,8 +17,6 @@
 	} from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
-	import GhostHint from '$lib/components/ghost-hint.svelte';
-	import MoveHint from '$lib/components/move-hint.svelte';
 	import MonthCalendar from '$lib/components/month-calendar.svelte';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -120,29 +118,39 @@
 		return map;
 	});
 
+	const actualByDay = $derived.by(() => {
+		const map = new Map<string, FeedItem[]>();
+		for (const event of data.events) {
+			const key = eventDateKey(event, timeZone);
+			const list = map.get(key) ?? [];
+			list.push(event);
+			map.set(key, list);
+		}
+		return map;
+	});
+
 	const agenda = $derived.by(() => {
 		const key = selected.toString();
-		const solid = eventsByDay.get(key) ?? [];
-		const ghosts = ghostsByDay.get(key) ?? [];
-		return [
-			...solid.map((item) => ({ item, ghost: false })),
-			...ghosts.map((item) => ({ item, ghost: true }))
-		];
+		const onDay = (actualByDay.get(key) ?? []).map((item) => ({
+			item,
+			dueDay: null as string | null
+		}));
+		if (key !== currentDay.toString()) return onDay;
+
+		const moved = (eventsByDay.get(key) ?? [])
+			.filter((item) => eventDateKey(item, timeZone) !== key)
+			.sort((a, b) => eventDateKey(a, timeZone).localeCompare(eventDateKey(b, timeZone)));
+		return [...onDay, ...moved.map((item) => ({ item, dueDay: movedDueDay(item) }))];
 	});
 	const upcomingLimit = 8;
 	const upcoming = $derived.by(() => {
 		const selectedKey = selected.toString();
-		const groups: { key: string; label: string; items: { item: FeedItem; ghost: boolean }[] }[] = [];
+		const groups: { key: string; label: string; items: FeedItem[] }[] = [];
 		let shown = 0;
 		let remaining = 0;
-		const keys = [...new Set([...eventsByDay.keys(), ...ghostsByDay.keys()])]
-			.filter((key) => key > selectedKey)
-			.sort();
+		const keys = [...actualByDay.keys()].filter((key) => key > selectedKey).sort();
 		for (const key of keys) {
-			const items = [
-				...(eventsByDay.get(key) ?? []).map((item) => ({ item, ghost: false })),
-				...(ghostsByDay.get(key) ?? []).map((item) => ({ item, ghost: true }))
-			];
+			const items = actualByDay.get(key) ?? [];
 			if (shown >= upcomingLimit) {
 				remaining += items.length;
 				continue;
@@ -164,6 +172,16 @@
 		}
 		return { groups, shown, remaining };
 	});
+	function movedDueDay(item: FeedItem): string {
+		const actual = eventDateKey(item, timeZone);
+		if (actual === currentDay.add({ days: 1 }).toString()) return 'Tomorrow';
+		const date = parseDate(actual);
+		return new Intl.DateTimeFormat(undefined, {
+			weekday: 'long',
+			timeZone: 'UTC'
+		}).format(date.toDate('UTC'));
+	}
+
 	const dayLabel = $derived.by(() => {
 		const date = selected.toDate(timeZone);
 		const formatted = new Intl.DateTimeFormat(undefined, {
@@ -314,45 +332,36 @@
 				<Card.Header>
 					<Card.Title>{dayLabel}</Card.Title>
 					<Card.Description>
-						{agenda.length === 1 ? '1 item' : `${agenda.length} items`}
+						{#if agenda.length === 0}
+							{data.feed || data.preview ? 'Nothing scheduled.' : 'Add a calendar feed to see due dates.'}
+						{:else}
+							{agenda.length === 1 ? '1 item' : `${agenda.length} items`}
+						{/if}
 					</Card.Description>
 				</Card.Header>
+				{#if agenda.length > 0}
 				<Card.Content>
-					{#if agenda.length === 0}
-						<p class="text-sm text-muted-foreground">
-							{data.feed || data.preview ? 'Nothing scheduled.' : 'Add a calendar feed to see due dates.'}
-						</p>
-					{:else}
-						<ScrollArea class="h-96">
+						<ScrollArea class="max-h-96">
 							<ul class="flex flex-col gap-3 pr-3">
-								{#each agenda as entry, index (`${entry.ghost ? 'ghost' : 'item'}-${entry.item.id}`)}
+								{#each agenda as entry, index (entry.item.id)}
 									{#if index > 0}
 										<li aria-hidden="true"><Separator /></li>
 									{/if}
-									<li class={cn('flex flex-col gap-2', entry.ghost && 'opacity-40')}>
+									<li class="flex flex-col gap-2">
 										<div class="flex items-start justify-between gap-3">
 											<div class="flex min-w-0 flex-col gap-1">
 												<EventHover item={entry.item} {timeZone} class="truncate font-medium">
 													{entry.item.title}
 												</EventHover>
-												{#if eventWhenLabel(entry.item, timeZone) !== 'Due'}
-													<p class="text-sm text-muted-foreground">
-														{eventWhenLabel(entry.item, timeZone)}
-													</p>
-												{/if}
+												<p class="text-sm text-muted-foreground">
+													{eventWhenLabel(entry.item, timeZone)}{entry.dueDay
+														? ` (${entry.dueDay})`
+														: ''}
+												</p>
 											</div>
-											<div class="flex shrink-0 items-center gap-1.5">
-												<Badge
-													variant={entry.item.kind === 'assignment' ? 'destructive' : 'secondary'}
-												>
-													{entry.item.kind === 'assignment' ? 'Due' : 'Event'}
-												</Badge>
-												{#if entry.ghost}
-													<GhostHint item={entry.item} {timeZone} />
-												{:else}
-													<MoveHint item={entry.item} {timeZone} />
-												{/if}
-											</div>
+											<Badge variant={entry.item.kind === 'assignment' ? 'destructive' : 'secondary'}>
+												{entry.item.kind === 'assignment' ? 'Due' : 'Event'}
+											</Badge>
 										</div>
 										{#if entry.item.course}
 											<p class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
@@ -369,8 +378,8 @@
 								{/each}
 							</ul>
 						</ScrollArea>
-					{/if}
 				</Card.Content>
+				{/if}
 			</Card.Root>
 
 			<Card.Root>
@@ -399,28 +408,34 @@
 										{group.label}
 									</Button>
 									<ul class="flex flex-col gap-3">
-										{#each group.items as entry (`${entry.ghost ? 'ghost' : 'item'}-${entry.item.id}`)}
-											<li class={cn('flex items-start justify-between gap-3', entry.ghost && 'opacity-40')}>
-												<div class="flex min-w-0 flex-col gap-1">
-													<EventHover item={entry.item} {timeZone} class="truncate font-medium">
-														{entry.item.title}
-													</EventHover>
-													<p class="text-sm text-muted-foreground">
-														{eventWhenLabel(entry.item, timeZone)}
-													</p>
-												</div>
-												<div class="flex shrink-0 items-center gap-1.5">
+										{#each group.items as item (item.id)}
+											<li class="flex flex-col gap-2">
+												<div class="flex items-start justify-between gap-3">
+													<div class="flex min-w-0 flex-col gap-1">
+														<EventHover {item} {timeZone} class="truncate font-medium">
+															{item.title}
+														</EventHover>
+														<p class="text-sm text-muted-foreground">
+															{eventWhenLabel(item, timeZone)}
+														</p>
+													</div>
 													<Badge
-														variant={entry.item.kind === 'assignment' ? 'destructive' : 'secondary'}
+														variant={item.kind === 'assignment' ? 'destructive' : 'secondary'}
 													>
-														{entry.item.kind === 'assignment' ? 'Due' : 'Event'}
+														{item.kind === 'assignment' ? 'Due' : 'Event'}
 													</Badge>
-													{#if entry.ghost}
-														<GhostHint item={entry.item} {timeZone} />
-													{:else}
-														<MoveHint item={entry.item} {timeZone} />
-													{/if}
 												</div>
+												{#if item.course}
+													<p class="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+														<span
+															class={cn(
+																'size-2 shrink-0 rounded-full',
+																courseColor(item.course)
+															)}
+														></span>
+														<span class="min-w-0 truncate">{item.course}</span>
+													</p>
+												{/if}
 											</li>
 										{/each}
 									</ul>
