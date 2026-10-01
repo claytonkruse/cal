@@ -1,13 +1,10 @@
 <script lang="ts">
 	import { CalendarDate, getLocalTimeZone, startOfWeek } from '@internationalized/date';
-	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
-	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
-	import { courseBorder, courseFill } from '$lib/canvas/dates';
+	import { compareByDueDate, courseBorder, courseFill } from '$lib/canvas/dates';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
 	import GhostHint from '$lib/components/ghost-hint.svelte';
 	import MoveHint from '$lib/components/move-hint.svelte';
-	import { Button } from '$lib/components/ui/button';
 	import { cn } from '$lib/utils';
 
 	let {
@@ -30,21 +27,20 @@
 	const timeZone = getLocalTimeZone();
 	const visibleEvents = 3;
 
-	const monthLabel = $derived(
-		new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(
-			month.toDate(timeZone)
-		)
-	);
-
 	const weeks = $derived.by(() => {
-		let cursor = startOfWeek(month.set({ day: 1 }), locale);
-		return Array.from({ length: 6 }, () =>
-			Array.from({ length: 7 }, () => {
-				const day = cursor;
+		const first = month.set({ day: 1 });
+		const last = first.add({ months: 1 }).subtract({ days: 1 });
+		let cursor = startOfWeek(first, locale);
+		const rows: CalendarDate[][] = [];
+		while (cursor.compare(last) <= 0) {
+			const week: CalendarDate[] = [];
+			for (let day = 0; day < 7; day += 1) {
+				week.push(cursor);
 				cursor = cursor.add({ days: 1 });
-				return day;
-			})
-		);
+			}
+			rows.push(week);
+		}
+		return rows;
 	});
 
 	const weekdayLabels = $derived(
@@ -54,37 +50,9 @@
 	);
 
 	const todayKey = $derived(todayDate.toString());
-
-	function shiftMonth(amount: number) {
-		month = month.add({ months: amount });
-	}
 </script>
 
 <div class="flex flex-col gap-3">
-	<div class="flex flex-wrap items-center justify-between gap-3">
-		<h2 class="text-lg font-semibold">{monthLabel}</h2>
-		<div class="flex items-center gap-1">
-			<Button variant="outline" size="icon" type="button" onclick={() => shiftMonth(-1)}>
-				<ChevronLeftIcon />
-				<span class="sr-only">Previous month</span>
-			</Button>
-			<Button
-				variant="outline"
-				type="button"
-				onclick={() => {
-					month = todayDate;
-					onSelect(todayDate);
-				}}
-			>
-				Today
-			</Button>
-			<Button variant="outline" size="icon" type="button" onclick={() => shiftMonth(1)}>
-				<ChevronRightIcon />
-				<span class="sr-only">Next month</span>
-			</Button>
-		</div>
-	</div>
-
 	<div class="overflow-x-auto">
 		<div class="grid min-w-[720px] grid-cols-7 gap-px overflow-hidden rounded-lg border bg-border">
 			{#each weekdayLabels as label (label)}
@@ -96,14 +64,15 @@
 					{@const items = [
 						...(eventsByDay.get(key) ?? []).map((item) => ({ item, ghost: false })),
 						...(ghostsByDay.get(key) ?? []).map((item) => ({ item, ghost: true }))
-					]}
+					].sort((a, b) => compareByDueDate(a.item, b.item, timeZone))}
 					{@const outside = day.month !== month.month}
 					<button
 						type="button"
 						class={cn(
 							'flex min-h-28 flex-col gap-1 bg-card p-1.5 text-left',
 							outside && 'bg-muted/50 text-muted-foreground',
-							key === selected.toString() && 'bg-accent text-accent-foreground'
+							key === selected.toString() &&
+								'bg-accent text-accent-foreground outline-1 -outline-offset-2 outline-muted-foreground/55'
 						)}
 						aria-current={key === todayKey ? 'date' : undefined}
 						aria-pressed={key === selected.toString()}

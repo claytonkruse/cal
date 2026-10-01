@@ -73,6 +73,29 @@ export function eventDateKey(event: FeedItem, timeZone = getLocalTimeZone()): st
 	return new CalendarDate(zoned.year, zoned.month, zoned.day).toString();
 }
 
+function dueSortKey(event: FeedItem, timeZone: string): string {
+	const day = eventDateKey(event, timeZone);
+	if (event.kind === 'assignment' && event.allDay) return `${day}T23:59`;
+	if (event.allDay) return `${day}T00:00`;
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone,
+		hour: '2-digit',
+		minute: '2-digit',
+		hourCycle: 'h23'
+	}).formatToParts(new Date(event.start));
+	const hour = (parts.find((part) => part.type === 'hour')?.value ?? '00').padStart(2, '0');
+	const minute = (parts.find((part) => part.type === 'minute')?.value ?? '00').padStart(2, '0');
+	return `${day}T${hour}:${minute}`;
+}
+
+export function compareByDueDate(
+	a: FeedItem,
+	b: FeedItem,
+	timeZone = getLocalTimeZone()
+): number {
+	return dueSortKey(a, timeZone).localeCompare(dueSortKey(b, timeZone)) || a.title.localeCompare(b.title);
+}
+
 export type DisplayMoves = {
 	weekend: boolean;
 	early: boolean;

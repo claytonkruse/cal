@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'vitest';
 import {
 	assignmentPlacement,
+	compareByDueDate,
 	defaultDisplayMoves,
 	displayDateKey,
 	eventDateKey,
@@ -61,6 +62,18 @@ END:VCALENDAR`);
 		assert.equal(
 			homework?.details,
 			'Please check all four attached files carefully before starting the assignment.\n[HW_02_Instructions.pdf](https://school.instructure.com/files/1)'
+		);
+	});
+
+	it('orders assignments by the earliest due time', () => {
+		const quiz = items.find((item) => item.title === 'Reading quiz')!;
+		const problem = items.find((item) => item.title === 'Problem set')!;
+		const homework = items.find((item) => item.title === 'HW2')!;
+		assert.equal(compareByDueDate(problem, quiz, 'America/Chicago') > 0, true);
+		assert.equal(compareByDueDate(quiz, homework, 'America/Chicago') < 0, true);
+		assert.deepEqual(
+			[homework, quiz, problem].sort((a, b) => compareByDueDate(a, b, 'America/Chicago')).map((item) => item.title),
+			['Reading quiz', 'Problem set', 'HW2']
 		);
 	});
 

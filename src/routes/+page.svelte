@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { CalendarDate, getLocalTimeZone, parseDate } from '@internationalized/date';
 	import CheckIcon from '@lucide/svelte/icons/check';
+	import ChevronLeftIcon from '@lucide/svelte/icons/chevron-left';
+	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
@@ -8,7 +10,7 @@
 	import { navigating, page } from '$app/state';
 	import { canvasFeedParam } from '$lib/canvas/canvas-feed-param';
 	import { description } from '$lib/site';
-	import { courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
+	import { compareByDueDate, courseColor, displayDateKey, eventDateKey, eventWhenLabel } from '$lib/canvas/dates';
 	import DisplaySettings, {
 		appToday,
 		debugSettings,
@@ -100,6 +102,7 @@
 			list.push(event);
 			map.set(key, list);
 		}
+		for (const list of map.values()) list.sort((a, b) => compareByDueDate(a, b, timeZone));
 		return map;
 	});
 
@@ -115,6 +118,7 @@
 			list.push(event);
 			map.set(actual, list);
 		}
+		for (const list of map.values()) list.sort((a, b) => compareByDueDate(a, b, timeZone));
 		return map;
 	});
 
@@ -126,6 +130,7 @@
 			list.push(event);
 			map.set(key, list);
 		}
+		for (const list of map.values()) list.sort((a, b) => compareByDueDate(a, b, timeZone));
 		return map;
 	});
 
@@ -135,12 +140,14 @@
 			item,
 			dueDay: null as string | null
 		}));
-		if (key !== currentDay.toString()) return onDay;
+		if (key !== currentDay.toString()) {
+			return [...onDay].sort((a, b) => compareByDueDate(a.item, b.item, timeZone));
+		}
 
-		const moved = (eventsByDay.get(key) ?? [])
-			.filter((item) => eventDateKey(item, timeZone) !== key)
-			.sort((a, b) => eventDateKey(a, timeZone).localeCompare(eventDateKey(b, timeZone)));
-		return [...onDay, ...moved.map((item) => ({ item, dueDay: movedDueDay(item) }))];
+		const moved = (eventsByDay.get(key) ?? []).filter((item) => eventDateKey(item, timeZone) !== key);
+		return [...onDay, ...moved.map((item) => ({ item, dueDay: movedDueDay(item) }))].sort((a, b) =>
+			compareByDueDate(a.item, b.item, timeZone)
+		);
 	});
 	const upcomingLimit = 8;
 	const upcoming = $derived.by(() => {
@@ -252,13 +259,26 @@
 
 	function selectDay(day: CalendarDate) {
 		selected = day;
-		if (placeholder.year !== day.year || placeholder.month !== day.month) {
-			placeholder = day;
-		}
 		if (page.url.searchParams.get('day') === day.toString()) return;
 		const url = new URL(page.url);
 		url.searchParams.set('day', day.toString());
 		replaceState(url, page.state);
+	}
+
+	function showToday() {
+		placeholder = currentDay;
+		selectDay(currentDay);
+	}
+
+	function shiftMonth(amount: number) {
+		placeholder = placeholder.add({ months: amount });
+	}
+
+	function monthTitle(date: CalendarDate): string {
+		return new Intl.DateTimeFormat(undefined, {
+			month: 'long',
+			year: 'numeric'
+		}).format(date.toDate(timeZone));
 	}
 </script>
 
@@ -303,29 +323,61 @@
 		</div>
 	{:else}
 		<div class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-			<Card.Root>
-				<Card.Header>
-					<Card.Title>Month</Card.Title>
-					<Card.Description>Due dates from your Canvas calendar feed</Card.Description>
-				</Card.Header>
-				<Card.Content>
-					<MonthCalendar
-						bind:month={placeholder}
-						{selected}
-						{eventsByDay}
-						{ghostsByDay}
-						todayDate={currentDay}
-						onSelect={selectDay}
-					/>
-				</Card.Content>
-				{#if outsideWindow}
-					<Card.Footer>
-						<p class="text-sm text-muted-foreground">
-							Canvas only includes about the past month and the next year of this feed.
-						</p>
-					</Card.Footer>
-				{/if}
-			</Card.Root>
+			<div class="flex flex-col gap-6">
+				<Card.Root class="gap-3">
+					<Card.Header class="items-center">
+						<Card.Title class="text-3xl">{monthTitle(placeholder)}</Card.Title>
+						<Card.Action class="row-span-1 self-center">
+							<div class="flex items-center gap-1">
+								<Button variant="outline" size="icon" type="button" onclick={() => shiftMonth(-1)}>
+									<ChevronLeftIcon />
+									<span class="sr-only">Previous month</span>
+								</Button>
+								<Button variant="outline" type="button" onclick={showToday}>
+									Today
+								</Button>
+								<Button variant="outline" size="icon" type="button" onclick={() => shiftMonth(1)}>
+									<ChevronRightIcon />
+									<span class="sr-only">Next month</span>
+								</Button>
+							</div>
+						</Card.Action>
+					</Card.Header>
+					<Card.Content>
+						<MonthCalendar
+							bind:month={placeholder}
+							{selected}
+							{eventsByDay}
+							{ghostsByDay}
+							todayDate={currentDay}
+							onSelect={selectDay}
+						/>
+					</Card.Content>
+					{#if outsideWindow}
+						<Card.Footer>
+							<p class="text-sm text-muted-foreground">
+								Canvas only includes about the past month and the next year of this feed.
+							</p>
+						</Card.Footer>
+					{/if}
+				</Card.Root>
+
+				<Card.Root class="gap-3">
+					<Card.Header>
+						<Card.Title class="text-3xl">{monthTitle(placeholder.add({ months: 1 }))}</Card.Title>
+					</Card.Header>
+					<Card.Content>
+						<MonthCalendar
+							month={placeholder.add({ months: 1 })}
+							{selected}
+							{eventsByDay}
+							{ghostsByDay}
+							todayDate={currentDay}
+							onSelect={selectDay}
+						/>
+					</Card.Content>
+				</Card.Root>
+			</div>
 
 			<div class="flex flex-col gap-6">
 			<Card.Root>
@@ -542,13 +594,13 @@
 		</div>
 	{/if}
 
-	<footer class="border-t pt-4 text-sm text-muted-foreground">
-		<section id="about" class="flex flex-col gap-2 text-left">
-			<p>
-				Canvas Cal shows assignment due dates and course events from a Canvas calendar feed.
-				It moves assignment dates up to where they intuitively belong.
-			</p>
-			<p>
+	<footer class="@container border-t pt-4 text-sm text-muted-foreground">
+		<section
+			id="about"
+			class="flex flex-col gap-2 text-left @min-[48rem]:flex-row @min-[48rem]:items-baseline @min-[48rem]:justify-between"
+		>
+			<p>Canvas Cal shows assignment due dates and course events from a Canvas calendar feed.</p>
+			<p class="shrink-0">
 				© 2026
 				<a
 					href="https://clayk.cc"
