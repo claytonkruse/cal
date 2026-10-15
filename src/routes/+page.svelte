@@ -267,7 +267,11 @@
 
 	function showToday() {
 		placeholder = currentDay;
-		selectDay(currentDay);
+		selected = currentDay;
+		if (!page.url.searchParams.has('day')) return;
+		const url = new URL(page.url);
+		url.searchParams.delete('day');
+		replaceState(url, page.state);
 	}
 
 	function shiftMonth(amount: number) {
