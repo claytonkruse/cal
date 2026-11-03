@@ -50,6 +50,17 @@
 	export const debugSettings = $state(loadDebug());
 	export const hideDueDates = $state({ enabled: loadHideDueDates() });
 
+	// Holds the real local day so views update when midnight passes without a reload.
+	const clock = $state({ day: today(getLocalTimeZone()).toString() });
+
+	export function tickClock(): void {
+		clock.day = today(getLocalTimeZone()).toString();
+	}
+
+	export function realToday(): string {
+		return clock.day;
+	}
+
 	export function appToday(timeZone: string): CalendarDate {
 		if (debugSettings.enabled && debugSettings.today) {
 			try {
@@ -58,6 +69,8 @@
 				// Ignore a stored value that is not a calendar date.
 			}
 		}
+		// Read the clock so callers rerun when the day changes.
+		void clock.day;
 		return today(timeZone);
 	}
 
@@ -110,6 +123,17 @@
 		debugSettings.enabled;
 		debugSettings.today;
 		saveDisplayMoves();
+	});
+
+	$effect(() => {
+		const timer = setInterval(tickClock, 60_000);
+		window.addEventListener('focus', tickClock);
+		document.addEventListener('visibilitychange', tickClock);
+		return () => {
+			clearInterval(timer);
+			window.removeEventListener('focus', tickClock);
+			document.removeEventListener('visibilitychange', tickClock);
+		};
 	});
 
 	$effect(() => {

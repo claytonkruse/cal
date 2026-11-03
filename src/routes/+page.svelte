@@ -6,7 +6,7 @@
 	import CopyIcon from '@lucide/svelte/icons/copy';
 	import LinkIcon from '@lucide/svelte/icons/link';
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
-	import { replaceState } from '$app/navigation';
+	import { invalidateAll, replaceState } from '$app/navigation';
 	import { navigating, page } from '$app/state';
 	import { canvasFeedParam } from '$lib/canvas/canvas-feed-param';
 	import { description } from '$lib/site';
@@ -15,10 +15,12 @@
 		appToday,
 		debugSettings,
 		displayMoves,
-		hideDueDates
+		hideDueDates,
+		realToday
 	} from '$lib/components/display-settings.svelte';
 	import type { FeedItem } from '$lib/canvas/ics';
 	import EventHover from '$lib/components/event-hover.svelte';
+	import LiveClock from '$lib/components/live-clock.svelte';
 	import MonthCalendar from '$lib/components/month-calendar.svelte';
 	import ThemeToggle from '$lib/components/theme-toggle.svelte';
 	import * as Alert from '$lib/components/ui/alert';
@@ -86,6 +88,27 @@
 	const timeZone = getLocalTimeZone();
 
 	const currentDay = $derived(appToday(timeZone));
+	let lastDay = appToday(timeZone);
+
+	// Follow the new day when the selection was on today.
+	$effect(() => {
+		const day = currentDay;
+		if (day.compare(lastDay) === 0) return;
+		const previous = lastDay;
+		lastDay = day;
+		if (selected.compare(previous) !== 0 || page.url.searchParams.has('day')) return;
+		if (placeholder.year === previous.year && placeholder.month === previous.month) placeholder = day;
+		selected = day;
+	});
+	let loadedDay = realToday();
+
+	// Reload the feed when the real day changes so new assignments show up.
+	$effect(() => {
+		const day = realToday();
+		if (day === loadedDay) return;
+		loadedDay = day;
+		void invalidateAll();
+	});
 	const debugTodayLabel = $derived(
 		new Intl.DateTimeFormat(undefined, {
 			weekday: 'long',
@@ -297,6 +320,7 @@
 			<p class="text-sm text-muted-foreground">{description}</p>
 		</div>
 		<div class="flex items-center gap-2">
+			<LiveClock />
 			<DisplaySettings />
 			<ThemeToggle />
 			<Button variant="outline" type="button" onclick={() => (dialogOpen = true)}>
